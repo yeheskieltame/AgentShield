@@ -1,0 +1,33 @@
+{
+  "name": "agentshield",
+  "version": "1.0.0",
+  "description": "DeFi Circuit Breaker Protocol via AI Agent Consensus on Hedera",
+  "type": "module",
+  "scripts": {
+    "setup:topics": "tsx scripts/setup-topics.ts",
+    "setup:tokens": "tsx scripts/create-tokens.ts",
+    "setup:agents": "tsx scripts/register-agents.ts",
+    "setup:fund": "tsx scripts/fund-agents.ts",
+    "coordinator": "tsx agents/coordinator/index.ts",
+    "sentinel:keeper": "tsx agents/sentinel/index.ts --role=keeper",
+    "sentinel:arb": "tsx agents/sentinel/index.ts --role=arb",
+    "sentinel:whale": "tsx agents/sentinel/index.ts --role=whale",
+    "observer": "tsx agents/observer/index.ts",
+    "demo:crash": "tsx agents/sentinel/scenarios/flash-crash.ts"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@hashgraph/sdk": "^2.81.0",
+    "@hashgraphonline/standards-agent-kit": "^0.2.166",
+    "@hashgraphonline/standards-sdk": "^0.1.168",
+    "@langchain/core": "^1.1.34",
+    "@langchain/groq": "^1.1.5",
+    "@langchain/langgraph": "^1.2.3",
+    "@types/node": "^25.5.0",
+    "dotenv": "^16.6.1",
+    "hedera-agent-kit": "^3.8.1",
+    "langchain": "^1.2.35",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}
