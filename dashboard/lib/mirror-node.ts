@@ -35,7 +35,32 @@ export function parseIntent(msg: HCSMessage): Intent | null {
 export function parseSignal(msg: HCSMessage): Signal | null {
   const data = decodeMessage(msg.message) as Record<string, unknown>;
   if (!data || data.op !== 'signal') return null;
-  return data as unknown as Signal;
+
+  // Normalize timestamp (same as parseIntent)
+  const timestamp = Number(data.timestamp) || parseFloat(msg.consensus_timestamp) * 1000;
+
+  // Ensure metrics object exists with safe defaults
+  const rawMetrics = (data.metrics as Record<string, unknown>) || {};
+  const metrics = {
+    totalIntents: Number(rawMetrics.totalIntents) || 0,
+    totalVolumeUsd: Number(rawMetrics.totalVolumeUsd) || 0,
+    sellPressure: Number(rawMetrics.sellPressure) || 0,
+    assetConcentration: Number(rawMetrics.assetConcentration) || 0,
+    topAsset: String(rawMetrics.topAsset || 'unknown'),
+    velocityPerSecond: Number(rawMetrics.velocityPerSecond) || 0,
+    riskScore: Number(rawMetrics.riskScore) || Number(data.risk_score) || 0,
+  };
+
+  return {
+    ...data,
+    timestamp,
+    metrics,
+    risk_score: Number(data.risk_score) || 0,
+    level: String(data.level || 'GREEN') as Signal['level'],
+    reasoning: String(data.reasoning || ''),
+    affected_assets: Array.isArray(data.affected_assets) ? data.affected_assets as string[] : [],
+    recommended_delay_ms: Number(data.recommended_delay_ms) || 0,
+  } as Signal;
 }
 
 export async function fetchTokenInfo(tokenId: string) {

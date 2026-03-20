@@ -1,12 +1,12 @@
 export interface Intent {
-  p: string;
+  p: 'agentshield';
   op: 'intent';
   agent_id: string;
-  action: string;
+  action: 'liquidate' | 'swap' | 'withdraw' | 'large_transfer';
   asset: string;
   size_usd: number;
-  direction: string;
-  urgency: string;
+  direction: 'sell' | 'buy';
+  urgency: 'low' | 'medium' | 'high';
   timestamp: number;
 }
 
@@ -21,7 +21,7 @@ export interface RiskMetrics {
 }
 
 export interface Signal {
-  p: string;
+  p: 'agentshield';
   op: 'signal';
   level: 'GREEN' | 'YELLOW' | 'RED';
   risk_score: number;
