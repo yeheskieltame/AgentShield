@@ -5,3 +5,5 @@ dist/
 dashboard/.next/
 dashboard/node_modules/
 *.log
+AgentShield_FINAL_BUILD_GUIDE.md
+dashboard/.env.local

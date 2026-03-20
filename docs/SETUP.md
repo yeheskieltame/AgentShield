@@ -1,113 +1,101 @@
-# AgentShield Quick Setup Guide
+# Setup Guide
 
 ## Prerequisites
 
-- **Node.js 18+** (with npm)
-- **6 Hedera Testnet accounts** -- create free at [portal.hedera.com](https://portal.hedera.com/dashboard)
-  - Coordinator, Sentinel Keeper, Sentinel Arb, Sentinel Whale, Observer, Treasury
-- **Groq API key** -- free at [console.groq.com](https://console.groq.com)
+- Node.js 18 or higher with npm
+- 6 Hedera Testnet accounts (free at portal.hedera.com)
+- Groq API key (free at console.groq.com)
 
-## 1. Clone and Install
+## 1. Install Dependencies
 
 ```bash
-git clone https://github.com/YourUsername/AgentShield.git
+git clone https://github.com/AqilJaique/AgentShield.git
 cd AgentShield
 npm install
 cd dashboard && npm install && cd ..
 ```
 
-## 2. Configure Environment
+## 2. Create Testnet Accounts
+
+Create 6 accounts at portal.hedera.com/dashboard. Each receives 10,000 test HBAR. Assign them as:
+
+| Account | Role |
+|---------|------|
+| Account 1 | Coordinator |
+| Account 2 | Sentinel Keeper |
+| Account 3 | Sentinel Arb |
+| Account 4 | Sentinel Whale |
+| Account 5 | Observer |
+| Account 6 | Treasury |
+
+## 3. Configure Environment
 
 ```bash
 cp .env.example .env
 ```
 
-Fill in your `.env` with:
-- All 6 Hedera account IDs and their ED25519 private keys
-- Your Groq API key
-- Leave topic IDs and token IDs blank for now (setup scripts will generate them)
+Fill in all account IDs and private keys. Add your Groq API key. Leave topic and token IDs empty for now.
 
-## 3. Run Setup Scripts (in order)
+## 4. Run Setup Scripts
 
-Each script outputs IDs that you must copy back into `.env` before running the next one.
+Execute in order. Each script outputs IDs to copy back into `.env`.
 
 ```bash
-# Step 1: Create HCS topics (Intent, Signal, Reputation)
 npx tsx scripts/setup-topics.ts
-# --> Copy INTENT_TOPIC_ID, SIGNAL_TOPIC_ID, REPUTATION_TOPIC_ID to .env
+# Output: INTENT_TOPIC_ID, SIGNAL_TOPIC_ID, REPUTATION_TOPIC_ID
+# Copy these to .env
 
-# Step 2: Create HTS tokens ($SHIELD fungible + Reputation NFT)
 npx tsx scripts/create-tokens.ts
-# --> Copy SHIELD_TOKEN_ID, REPUTATION_NFT_ID to .env
+# Output: SHIELD_TOKEN_ID, REPUTATION_NFT_ID
+# Copy these to .env
 
-# Step 3: Register all 5 agents in HOL Registry (HCS-10)
 npx tsx scripts/register-agents.ts
+# Registers all 5 agents in HOL Registry
+# Takes 5-10 minutes (creates accounts, inscribes profiles)
 
-# Step 4: Fund agent accounts with test HBAR
 npx tsx scripts/fund-agents.ts
+# Sends 10 HBAR to each agent account from treasury
 ```
 
-## 4. Run Agents
+## 5. Run Agents
 
-Start the Coordinator first, then Sentinels, then Observer. Each runs in its own terminal.
+Start each in a separate terminal. Coordinator must start first.
 
 ```bash
-# Terminal 1 -- Coordinator (must start first)
+# Terminal 1
 npm run coordinator
 
-# Terminal 2 -- Sentinel Keeper
+# Terminal 2
 npm run sentinel:keeper
 
-# Terminal 3 -- Sentinel Arb
+# Terminal 3
 npm run sentinel:arb
 
-# Terminal 4 -- Sentinel Whale
+# Terminal 4
 npm run sentinel:whale
 
-# Terminal 5 -- Observer
+# Terminal 5 (optional)
 npm run observer
 ```
 
-You should see:
-- Sentinels publishing intents every few seconds
-- Coordinator calculating risk and broadcasting GREEN/YELLOW signals
-- Observer reporting status
-
-## 5. Run Dashboard
+## 6. Run Dashboard
 
 ```bash
 cd dashboard
+cp ../.env .env.local   # Or manually set GROQ_API_KEY in .env.local
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to see live signal and intent data.
+Open http://localhost:3000.
 
-## 6. Run Demo Scenarios
+## 7. Run Demo
 
-### Flash Crash Simulation
-
-With the Coordinator already running in Terminal 1:
+With the Coordinator running in Terminal 1, open a new terminal:
 
 ```bash
-npm run demo:crash
+npm run demo:crash      # Flash crash simulation
+npm run demo:whale      # Whale dump simulation
+npm run demo:normal     # Normal trading baseline
 ```
 
-This runs a 4-phase scenario (~80 seconds total):
-
-| Phase | Duration | What Happens |
-|-------|----------|--------------|
-| Normal | 30s | 3 small trades at regular intervals |
-| Tension | 20s | 6 trades at higher volume |
-| Cascade | 15s | 15 high-urgency liquidations from 3 agents |
-| Recovery | 15s | Wait for risk to subside |
-
-Expected signal progression: **GREEN --> YELLOW --> RED --> GREEN**
-
-Watch the Coordinator terminal and Dashboard for real-time signal transitions.
-
-## Troubleshooting
-
-- **"INVALID_SIGNATURE"** -- Make sure the private key matches the account ID in `.env`.
-- **"INSUFFICIENT_PAYER_BALANCE"** -- Fund your accounts at [portal.hedera.com](https://portal.hedera.com/dashboard) (free testnet HBAR).
-- **Token association errors** -- Normal on first run; the code handles these with try/catch.
-- **Mirror Node lag** -- HCS messages take 3-7 seconds to appear via Mirror Node polling. Be patient.
+Watch the dashboard update in real-time as risk signals change.

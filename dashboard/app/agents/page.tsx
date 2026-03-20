@@ -11,7 +11,7 @@ export default function AgentsPage() {
 
   return (
     <div className="space-y-4">
-      <AgentRegistry intents={intents} selectedAgent={selectedAgent} onSelect={setSelectedAgent} />
+      <AgentRegistry intents={intents} signals={signals} selectedAgent={selectedAgent} onSelect={setSelectedAgent} />
       {selectedAgent && (
         <AgentDetail accountId={selectedAgent} intents={intents} signals={signals} />
       )}

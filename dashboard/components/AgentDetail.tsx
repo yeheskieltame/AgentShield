@@ -1,6 +1,8 @@
 'use client';
 
-import { AGENTS } from '../lib/config';
+import { useEffect, useState } from 'react';
+import { AGENTS, TOKENS, MIRROR_NODE_URL } from '../lib/config';
+import { fetchAccountInfo } from '../lib/mirror-node';
 import type { Intent, Signal } from '../lib/types';
 
 interface Props {
@@ -16,6 +18,48 @@ function agentShortName(id: string): string {
 
 export default function AgentDetail({ accountId, intents, signals }: Props) {
   const agent = AGENTS.find((a) => a.operatorAccount === accountId);
+  const [hbarBalance, setHbarBalance] = useState<string | null>(null);
+  const [shieldBalance, setShieldBalance] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!accountId) return;
+
+    async function loadBalances() {
+      setHbarBalance(null);
+      setShieldBalance(null);
+
+      // Fetch HBAR balance
+      const accountInfo = await fetchAccountInfo(accountId);
+      if (accountInfo?.balance?.balance != null) {
+        const hbar = (Number(accountInfo.balance.balance) / 1e8).toFixed(4);
+        setHbarBalance(hbar);
+      } else {
+        setHbarBalance('0');
+      }
+
+      // Fetch SHIELD token balance
+      try {
+        const res = await fetch(
+          `${MIRROR_NODE_URL}/accounts/${accountId}/tokens?token.id=${TOKENS.shield}`,
+          { cache: 'no-store' }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          const tokenEntry = data.tokens?.find(
+            (t: { token_id: string }) => t.token_id === TOKENS.shield
+          );
+          setShieldBalance(tokenEntry ? Number(tokenEntry.balance).toLocaleString() : '0');
+        } else {
+          setShieldBalance('0');
+        }
+      } catch {
+        setShieldBalance('0');
+      }
+    }
+
+    loadBalances();
+  }, [accountId]);
+
   if (!agent) return null;
 
   const agentIntents = intents.filter((i) => i.agent_id === accountId).slice(-5).reverse();
@@ -24,6 +68,18 @@ export default function AgentDetail({ accountId, intents, signals }: Props) {
   const yellowCount = signals.filter((s) => s.level === 'YELLOW').length;
   const redCount = signals.filter((s) => s.level === 'RED').length;
   const totalSig = greenCount + yellowCount + redCount || 1;
+
+  // Build compliance bars from last 8 signals (height based on risk_score)
+  const recentSignals = signals.slice(-8);
+  const complianceBars: number[] = [];
+  for (let i = 0; i < 8; i++) {
+    if (i < recentSignals.length) {
+      // Higher compliance = lower risk = taller bar
+      complianceBars.push((1 - recentSignals[i].risk_score) * 100);
+    } else {
+      complianceBars.push(100); // Pad with 100% if fewer than 8
+    }
+  }
 
   return (
     <div className="glass p-5">
@@ -58,8 +114,12 @@ export default function AgentDetail({ accountId, intents, signals }: Props) {
         <div className="flex-1">
           <div className="text-xs text-white/90 mb-2">COMPLIANCE LOG</div>
           <div className="flex items-end gap-1 h-10">
-            {[...Array(8)].map((_, i) => (
-              <div key={i} className="flex-1 bg-green-500/60 rounded-sm" style={{ height: `${60 + Math.random() * 40}%` }} />
+            {complianceBars.map((height, i) => (
+              <div
+                key={i}
+                className="flex-1 bg-green-500/60 rounded-sm"
+                style={{ height: `${Math.max(height, 5)}%` }}
+              />
             ))}
           </div>
           <div className="text-[10px] text-white/70 mt-2">
@@ -69,8 +129,8 @@ export default function AgentDetail({ accountId, intents, signals }: Props) {
               <span>$SHIELD</span>
             </div>
             <div className="flex justify-between text-white">
-              <span>? HBAR</span>
-              <span>? SHIELD</span>
+              <span>{hbarBalance !== null ? `${hbarBalance} HBAR` : 'Loading...'}</span>
+              <span>{shieldBalance !== null ? `${shieldBalance} SHIELD` : 'Loading...'}</span>
             </div>
             <div className="text-white/70 mt-0.5">Reputation NFTs</div>
           </div>

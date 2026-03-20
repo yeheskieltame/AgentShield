@@ -1,15 +1,23 @@
 'use client';
 
 import { AGENTS } from '../lib/config';
-import type { Intent } from '../lib/types';
+import type { Intent, Signal } from '../lib/types';
 
 interface Props {
   intents: Intent[];
+  signals: Signal[];
   selectedAgent: string | null;
   onSelect: (account: string) => void;
 }
 
-export default function AgentRegistry({ intents, selectedAgent, onSelect }: Props) {
+export default function AgentRegistry({ intents, signals, selectedAgent, onSelect }: Props) {
+  // Calculate overall compliance: ratio of non-RED signals to total signals
+  const totalSignals = signals.length;
+  const redSignals = signals.filter((s) => s.level === 'RED').length;
+  const compliance = totalSignals > 0
+    ? (((totalSignals - redSignals) / totalSignals) * 100).toFixed(1)
+    : '100.0';
+
   return (
     <div className="glass p-5">
       <h2 className="section-title mb-3">Agent Registry</h2>
@@ -54,7 +62,7 @@ export default function AgentRegistry({ intents, selectedAgent, onSelect }: Prop
                     </span>
                   </td>
                   <td className="py-2 text-right text-white">{agentIntents.length}</td>
-                  <td className="hidden md:table-cell py-2 text-right text-green-400">100%</td>
+                  <td className="hidden md:table-cell py-2 text-right text-green-400">{compliance}%</td>
                 </tr>
               );
             })}

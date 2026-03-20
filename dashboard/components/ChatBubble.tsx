@@ -12,46 +12,28 @@ interface ChatMessage {
   timestamp: number;
 }
 
-function generateResponse(query: string, signal: Signal | null): string {
-  const q = query.toLowerCase().trim();
-
+function fallbackResponse(signal: Signal | null): string {
   if (!signal) {
     return 'System is starting up. No risk data available yet. I will have insights once the Coordinator publishes its first signal.';
   }
-
   const score = signal.risk_score.toFixed(2);
   const reasoning = signal.reasoning || 'No reasoning provided.';
-  const assets = signal.affected_assets?.length ? signal.affected_assets.join(', ') : 'none specified';
-  const metrics = signal.metrics;
-
-  if (q.match(/risk|safe|status|how.*things|what.*going|level|signal|danger|threat/)) {
-    if (signal.level === 'GREEN') return `Current risk is LOW (score: ${score}). Safe to proceed.\n\n${reasoning}`;
-    if (signal.level === 'YELLOW') return `CAUTION — Moderate risk (score: ${score}). Reduce positions by 50%.\n\n${reasoning}`;
-    return `WARNING — High risk! (score: ${score}). Abort all transactions.\n\n${reasoning}`;
-  }
-  if (q.match(/asset|token|which|affected/)) {
-    return `Affected assets: ${assets}. Top concentrated: ${metrics?.topAsset ?? 'unknown'} (${((metrics?.assetConcentration ?? 0) * 100).toFixed(0)}%).`;
-  }
-  if (q.match(/volume|how much|total|size/)) {
-    const vol = metrics?.totalVolumeUsd ?? 0;
-    const fmt = vol >= 1e6 ? `$${(vol / 1e6).toFixed(1)}M` : `$${(vol / 1000).toFixed(0)}K`;
-    return `Volume: ${fmt} across ${metrics?.totalIntents ?? 0} intents. Velocity: ${(metrics?.velocityPerSecond ?? 0).toFixed(2)}/sec.`;
-  }
-  if (q.match(/sell|pressure|buy/)) {
-    return `Sell pressure: ${((metrics?.sellPressure ?? 0) * 100).toFixed(0)}%. ${(metrics?.sellPressure ?? 0) > 0.6 ? 'Elevated.' : 'Normal range.'}`;
-  }
-  if (q.match(/score|number|value/)) {
-    return `Risk score: ${score}. Weights — Volume 30%, Concentration 25%, Sell pressure 25%, Velocity 20%.`;
-  }
-  if (q.match(/delay|action|recommend|what.*do|should/)) {
-    if (signal.level === 'GREEN') return 'GREEN — No delay. Proceed normally.';
-    if (signal.level === 'YELLOW') return `YELLOW — Reduce sizes 50%, add ${signal.recommended_delay_ms}ms delay.`;
-    return `RED — ABORT all transactions. Wait ${signal.recommended_delay_ms}ms.`;
-  }
-  if (q.match(/help|what can|commands/)) {
-    return 'Ask me about:\n• Risk level & score\n• Affected assets\n• Volume metrics\n• Sell pressure\n• Recommended actions\n\nTry: "What\'s the risk?"';
-  }
   return `Signal: ${signal.level} (${score}). ${reasoning}`;
+}
+
+async function fetchAIResponse(message: string, signal: Signal | null): Promise<string> {
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, signal }),
+    });
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    const data = await res.json();
+    return data.response || fallbackResponse(signal);
+  } catch {
+    return fallbackResponse(signal);
+  }
 }
 
 function formatTime(ts: number): string {
@@ -72,16 +54,24 @@ export default function ChatBubble() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  function handleSend() {
+  const [isLoading, setIsLoading] = useState(false);
+
+  async function handleSend() {
     const trimmed = input.trim();
-    if (!trimmed) return;
+    if (!trimmed || isLoading) return;
 
     const userMsg: ChatMessage = { id: Date.now(), role: 'user', text: trimmed, timestamp: Date.now() };
-    const response = generateResponse(trimmed, latestSignal);
-    const obsMsg: ChatMessage = { id: Date.now() + 1, role: 'observer', text: response, timestamp: Date.now() };
+    const thinkingMsg: ChatMessage = { id: Date.now() + 1, role: 'observer', text: 'Thinking...', timestamp: Date.now() };
 
-    setMessages((prev) => [...prev, userMsg, obsMsg]);
+    setMessages((prev) => [...prev, userMsg, thinkingMsg]);
     setInput('');
+    setIsLoading(true);
+
+    const response = await fetchAIResponse(trimmed, latestSignal);
+    const obsMsg: ChatMessage = { id: Date.now() + 2, role: 'observer', text: response, timestamp: Date.now() };
+
+    setMessages((prev) => [...prev.slice(0, -1), obsMsg]);
+    setIsLoading(false);
   }
 
   function toggleOpen() {
@@ -166,7 +156,7 @@ export default function ChatBubble() {
               />
               <button
                 onClick={handleSend}
-                disabled={!input.trim()}
+                disabled={!input.trim() || isLoading}
                 className="w-9 h-9 rounded-xl bg-cyan-500/20 border border-cyan-400/30 flex items-center justify-center hover:bg-cyan-500/30 disabled:opacity-25 transition-all flex-shrink-0"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#06b6d4" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

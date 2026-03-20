@@ -2,399 +2,330 @@
 
 **Decentralized DeFi Circuit Breaker Protocol via AI Agent Consensus on Hedera**
 
-AgentShield prevents cascading liquidation events in DeFi by coordinating AI agents through Hedera Consensus Service (HCS). Agents broadcast transaction intents before execution, a Coordinator calculates systemic risk in real-time, and broadcasts safety signals (GREEN/YELLOW/RED) that agents autonomously comply with.
+AgentShield is a pre-execution coordination layer where AI agents broadcast transaction intents via Hedera Consensus Service before executing. A Coordinator agent aggregates intents in real-time, detects cascading liquidation risk using weighted anomaly scoring and LLM reasoning, and broadcasts safety signals to all participating agents. Agents autonomously comply by adjusting trade sizes or aborting. All agents are registered in the Hashgraph Online Registry via HCS-10 for discovery and trustless communication.
 
-Built for the **Hedera Hello Future Apex Hackathon 2026** (AI & Agents track + Hashgraph Online bounty).
-
----
+Track: AI and Agents | Bounty: Hashgraph Online | Hedera Hello Future Apex Hackathon 2026
 
 ## Table of Contents
 
-- [Problem Statement](#problem-statement)
-- [Solution](#solution)
-- [Architecture](#architecture)
-- [Tech Stack](#tech-stack)
-- [Project Structure](#project-structure)
-- [Setup & Installation](#setup--installation)
-- [Running the Protocol](#running-the-protocol)
-- [Flash Crash Demo](#flash-crash-demo)
-- [Hedera Testnet Addresses](#hedera-testnet-addresses)
-- [HOL Registry (HCS-10) Agent Registration](#hol-registry-hcs-10-agent-registration)
-- [HCS Topics](#hcs-topics)
-- [HTS Tokens](#hts-tokens)
-- [Risk Scoring Engine](#risk-scoring-engine)
-- [Signal Compliance Behavior](#signal-compliance-behavior)
-- [HCS Message Protocol](#hcs-message-protocol)
-- [License](#license)
+1. [Problem](#problem)
+2. [Solution](#solution)
+3. [Architecture](#architecture)
+4. [Hedera Integration](#hedera-integration)
+5. [HOL Bounty Integration](#hol-bounty-integration)
+6. [Tech Stack](#tech-stack)
+7. [Project Structure](#project-structure)
+8. [Quick Start](#quick-start)
+9. [Testnet Deployment](#testnet-deployment)
+10. [Risk Scoring Engine](#risk-scoring-engine)
+11. [HCS Message Protocol](#hcs-message-protocol)
+12. [Demo Scenarios](#demo-scenarios)
+13. [Findings](#findings)
+14. [Go-To-Market Strategy](#go-to-market-strategy)
+15. [Roadmap](#roadmap)
+16. [License](#license)
 
----
+## Problem
 
-## Problem Statement
+On October 10-11, 2025, the crypto market experienced the largest liquidation cascade in history. USD 19 billion in leveraged positions were wiped out within hours. 1.7 million traders were affected. Bitcoin dropped 14 percent. Solana fell over 40 percent.
 
-In DeFi, cascading liquidations can wipe out millions in value within seconds. When multiple AI agents (keepers, arbitrage bots, whale movers) simultaneously execute large transactions, they can trigger a chain reaction of liquidations, price crashes, and protocol insolvency. There is no coordination layer between these agents to prevent systemic risk.
+The root cause was structural, not fundamental:
+
+- AI agents, liquidation bots, and keeper bots operate in isolation. Each optimizes for its own objective. When thousands simultaneously deleverage, a self-reinforcing doom loop forms.
+- Traditional markets (NYSE, NASDAQ) halt trading at 7, 13, and 20 percent drops. Crypto has no equivalent coordinated circuit breaker.
+- A USD 60 million oracle manipulation was amplified 300x into USD 19.3 billion in destruction because no coordination layer existed to detect the anomaly before cascade.
+- DeFi protocols like Aave survived (liquidated USD 180M with zero bad debt) but could not prevent the cascade. They only endured the impact.
+
+The missing piece: a trustless coordination layer where agents share intent before execution, enabling collective awareness of systemic risk.
+
+Sources:
+- insights4vc.substack.com/p/inside-the-19b-flash-crash
+- hackernoon.com - What the October 2025 Flash Crash Taught Us
+- soliduslabs.com - When Whales Whisper: Inside the 20 Billion Crypto Meltdown
+- coindesk.com - Aave Sees Flash Crash as DeFi Protocol Endures Largest Stress Test
 
 ## Solution
 
-AgentShield introduces a **pre-execution coordination layer** where:
+AgentShield introduces a voluntary, decentralized circuit breaker with five steps:
 
-1. AI agents **broadcast their intent** (what they plan to do) to a shared Hedera Consensus Service topic *before* executing
-2. A **Coordinator agent** aggregates all intents in a sliding 60-second window, calculates a composite risk score using 4 weighted metrics, and uses an LLM (Groq/Llama-3.3-70b) for natural language reasoning
-3. The Coordinator broadcasts a **safety signal** (GREEN / YELLOW / RED) to all agents
-4. Agents **autonomously comply** — reducing trade sizes, adding delays, or aborting entirely based on the signal
-5. All activity is logged on-chain for transparency and reputation tracking
+1. AI agents broadcast their transaction intent to a shared HCS topic before executing
+2. A Coordinator agent aggregates all intents in a sliding 60-second window and calculates a composite risk score using four weighted metrics
+3. The Coordinator uses an LLM (Groq/Llama-3.3-70b) to generate natural language reasoning for each risk assessment
+4. The Coordinator broadcasts a safety signal (GREEN, YELLOW, or RED) to all agents
+5. Agents autonomously comply: proceed normally, reduce size by 50 percent, or abort entirely
 
-This is a **voluntary, decentralized circuit breaker** — no smart contract pauses, no centralized kill switches.
-
----
+No smart contract pauses. No centralized kill switches. Agents retain full autonomy while gaining collective intelligence about systemic risk.
 
 ## Architecture
 
-```
-+------------------------------------------------------------------+
-|                        AI AGENTS (TypeScript)                     |
-|                                                                   |
-|  Sentinel-Keeper  Sentinel-Arb  Sentinel-Whale     Observer      |
-|  (liquidations)   (swaps)       (large transfers)  (human chat)  |
-|       |               |              |                  |         |
-|       +-------+-------+------+-------+                  |         |
-|               |              |                          |         |
-|          [Intent Topic]  [Signal Topic]            [HCS-10]      |
-|               |              ^                          |         |
-|               v              |                          |         |
-|          COORDINATOR                                    |         |
-|          - Risk Engine (60s sliding window)              |         |
-|          - LLM Reasoning (Groq/Llama-3.3-70b)           |         |
-|          - Signal Broadcast                              |         |
-+------------------------------------------------------------------+
-|                    HEDERA NATIVE SERVICES                         |
-|                                                                   |
-|  HCS Topics          HTS Tokens           HBAR Transfers         |
-|  - Intent (public)   - $SHIELD (fungible)  - Agent funding       |
-|  - Signal (coord)    - Reputation NFT       - Treasury ops       |
-|  - Reputation (coord)                                            |
-+------------------------------------------------------------------+
-|                   HOL INTEGRATION (HCS-10)                        |
-|                                                                   |
-|  All 5 agents registered in Hashgraph Online Registry            |
-|  Agent-to-agent discovery and communication                      |
-+------------------------------------------------------------------+
+```mermaid
+graph TB
+    subgraph Agents["AI Agents (TypeScript)"]
+        SK[Sentinel Keeper<br/>Liquidation Bot]
+        SA[Sentinel Arb<br/>Arbitrage Bot]
+        SW[Sentinel Whale<br/>Large Position Mover]
+        OB[Observer<br/>Human Chat Agent]
+    end
+
+    subgraph Hedera["Hedera Network Services"]
+        IT[Intent Topic<br/>Public Submit]
+        ST[Signal Topic<br/>Coordinator Only]
+        RT[Reputation Topic<br/>Coordinator Only]
+        SHIELD[$SHIELD Token<br/>Fungible]
+        NFT[Reputation NFT<br/>Non-Fungible]
+    end
+
+    subgraph Coordinator["Coordinator Agent"]
+        RE[Risk Engine<br/>60s Sliding Window]
+        LLM[LLM Reasoning<br/>Groq Llama-3.3-70b]
+        RM[Reputation Manager<br/>NFT Minting]
+    end
+
+    subgraph HOL["HOL Registry (HCS-10)"]
+        REG[Agent Registration]
+        DISC[Agent Discovery]
+        CHAT[Agent-to-Agent Chat]
+    end
+
+    subgraph Dashboard["Dashboard (Next.js)"]
+        MN[Mirror Node Polling<br/>3s Interval]
+        UI[Real-time UI]
+        AI[AI Chat<br/>Groq LLM]
+    end
+
+    SK -->|Publish Intent| IT
+    SA -->|Publish Intent| IT
+    SW -->|Publish Intent| IT
+    IT -->|Mirror Node| RE
+    RE --> LLM
+    LLM -->|Broadcast Signal| ST
+    RE -->|Track Compliance| RM
+    RM -->|Mint NFT| NFT
+    RM -->|Distribute| SHIELD
+    RM -->|Log Event| RT
+    ST -->|Read Signal| SK
+    ST -->|Read Signal| SA
+    ST -->|Read Signal| SW
+    ST -->|Read Signal| OB
+    OB <-->|HCS-10 Chat| CHAT
+    MN -->|Poll Topics| IT
+    MN -->|Poll Topics| ST
+    MN --> UI
+    AI -->|Groq API| UI
+
+    SK -.->|Register| REG
+    SA -.->|Register| REG
+    SW -.->|Register| REG
+    OB -.->|Register| REG
+    Coordinator -.->|Register| REG
 ```
 
-**Data Flow:**
+### Data Flow
 
-```
-Sentinel detects opportunity
-  -> publishes intent to HCS Intent Topic
-    -> Coordinator reads via Mirror Node (3s polling)
-      -> calculates risk score (4-factor weighted model)
-        -> LLM generates natural language reasoning
-          -> broadcasts GREEN/YELLOW/RED to Signal Topic
-            -> Sentinels read signal and adjust behavior
-              -> Observer reports status to humans
+```mermaid
+sequenceDiagram
+    participant S as Sentinel Agent
+    participant HCS as HCS Intent Topic
+    participant MN as Mirror Node
+    participant C as Coordinator
+    participant ST as HCS Signal Topic
+    participant D as Dashboard
+
+    S->>HCS: 1. Publish intent (action, asset, size, direction)
+    MN-->>C: 2. Poll new intents (3s interval)
+    C->>C: 3. Add to 60s sliding window
+    C->>C: 4. Calculate risk score (4 weighted metrics)
+    C->>C: 5. Generate LLM reasoning
+    C->>ST: 6. Broadcast signal (GREEN/YELLOW/RED)
+    MN-->>S: 7. Read signal
+    S->>S: 8. Adjust behavior (reduce/abort/proceed)
+    C->>C: 9. Track compliance, mint reputation NFT
+    MN-->>D: 10. Poll and display real-time
 ```
 
----
+## Hedera Integration
+
+AgentShield uses five Hedera native services with zero custom smart contracts:
+
+| Service | Usage |
+|---------|-------|
+| HCS (Consensus Service) | Intent broadcast, signal broadcast, reputation logging. Three topics with different access controls. |
+| HTS (Token Service) | SHIELD fungible token for rewards. Reputation NFT collection for compliance badges. |
+| Account Service | Six agent accounts. HBAR transfers for funding. Token associations and transfers. |
+| Mirror Node REST API | Real-time HCS message polling at 3-second intervals. Account and token data queries. |
+| HCS-10 Standard | Agent registration, discovery, and bidirectional chat via Hashgraph Online Registry. |
+
+Why no custom smart contract: HTS creates tokens natively without Solidity. HCS records immutable state without Solidity. HBAR transfers handle rewards without Solidity. Development time is focused on agent logic, which is the core innovation.
+
+## HOL Bounty Integration
+
+Bounty requirement: Register and build a useful AI Agent in the HOL Registry Broker.
+
+| Requirement | Implementation |
+|-------------|---------------|
+| Register agent using HOL Standards SDK | All 5 agents registered via HCS10Client and AgentBuilder |
+| Others can reach agent via HCS-10 | Each agent has inbound/outbound topics for bidirectional communication |
+| Users can chat with agent using natural language | Observer Agent accepts HCS-10 messages and responds with risk status |
+| Interface with Apex Hackathon dApp | Dashboard displays registered agents, shows risk data, enables AI chat |
+
+HOL use cases addressed:
+- Agents subscribing to other agents outputs: All Sentinels subscribe to Coordinator signals
+- Agents competing for tasks: Sentinels compete for highest compliance score and reputation NFTs
+- Agent DAOs / guilds / collectives: AgentShield is an agent collective for DeFi safety
+- Agents hiring other agents: Coordinator delegates monitoring tasks to Sentinels
 
 ## Tech Stack
 
 | Component | Technology |
 |-----------|-----------|
-| Language | TypeScript (Node.js, ES Modules) |
-| Blockchain | Hedera Testnet (HCS, HTS, Account Service) |
-| Runtime LLM | Groq free tier — `llama-3.3-70b-versatile` |
-| Agent Framework | LangChain + LangGraph |
-| Hedera SDK | `@hashgraph/sdk` v2.81+ |
-| HOL Standards | `@hashgraphonline/standards-sdk` v0.1.168+ |
-| Agent Toolkit | `hedera-agent-kit` v3.8+ |
-| Runner | `tsx` (TypeScript Execute) |
-
----
+| Language | TypeScript, Node.js, ES Modules |
+| Blockchain | Hedera Testnet |
+| Runtime LLM | Groq free tier, llama-3.3-70b-versatile |
+| Agent Framework | LangChain, LangGraph |
+| Hedera SDK | @hashgraph/sdk v2.81+ |
+| HOL Standards | @hashgraphonline/standards-sdk v0.1.168+ |
+| Agent Toolkit | hedera-agent-kit v3.8+ |
+| Dashboard | Next.js 15, Tailwind CSS, Recharts |
+| Runner | tsx (TypeScript Execute) |
 
 ## Project Structure
 
 ```
-AgentShield/
-├── agents/
-│   ├── coordinator/
-│   │   ├── index.ts            # Main coordinator loop
-│   │   ├── risk-engine.ts      # 4-factor risk scoring engine
-│   │   └── llm-reasoning.ts    # Groq LLM integration
-│   ├── sentinel/
-│   │   ├── index.ts            # Sentinel agent (keeper/arb/whale)
-│   │   └── scenarios/
-│   │       └── flash-crash.ts  # Flash crash demo simulation
-│   └── observer/
-│       └── index.ts            # Human-facing status agent
-├── lib/
-│   ├── types.ts                # TypeScript interfaces
-│   ├── config.ts               # Environment config loader
-│   ├── hedera-client.ts        # Hedera SDK client factory
-│   └── hcs-subscriber.ts       # Mirror Node HCS polling
-├── scripts/
-│   ├── setup-topics.ts         # Create HCS topics
-│   ├── create-tokens.ts        # Create $SHIELD + Reputation NFT
-│   ├── register-agents.ts      # Register agents in HOL Registry
-│   └── fund-agents.ts          # Fund agent accounts with HBAR
-├── dashboard/                  # Next.js dashboard (planned)
-├── package.json
-├── tsconfig.json
-├── .env.example
-└── README.md
+agentshield/
+  agents/
+    coordinator/
+      index.ts                 Main loop: subscribe, aggregate, signal
+      risk-engine.ts           Sliding window and cascade risk score
+      llm-reasoning.ts         Groq LLM for human-readable explanation
+      reputation-manager.ts    Compliance tracking, NFT minting, SHIELD distribution
+    sentinel/
+      index.ts                 Main loop: detect, broadcast intent, listen signal
+      scenarios/
+        flash-crash.ts         Simulates Oct 2025 cascade scenario
+        whale-dump.ts          Large single-actor dump scenario
+        normal-trading.ts      Normal market conditions baseline
+    observer/
+      index.ts                 HCS-10 chat agent with message handling
+      chat-handler.ts          Natural language query to risk status response
+  lib/
+    config.ts                  Environment variables and constants
+    hedera-client.ts           Hedera SDK client initialization
+    hcs-subscriber.ts          Mirror Node HCS topic subscription
+    types.ts                   TypeScript interfaces for all message types
+  scripts/
+    setup-topics.ts            Create 3 HCS topics
+    create-tokens.ts           Create SHIELD token and Reputation NFT
+    register-agents.ts         Register all agents in HOL Registry
+    fund-agents.ts             Send test HBAR to all agent accounts
+  dashboard/
+    app/                       Next.js App Router pages
+    components/                UI components (glassmorphism design)
+    lib/                       Mirror Node client and data hooks
+  docs/
+    ARCHITECTURE.md            System architecture details
+    SETUP.md                   Setup and installation guide
+    DEMO-SCRIPT.md             Demo video script
 ```
 
----
+## Quick Start
 
-## Setup & Installation
-
-### Prerequisites
-
-- Node.js 18+
-- 6 Hedera Testnet accounts (create free at [portal.hedera.com](https://portal.hedera.com/dashboard))
-- Groq API key (free at [console.groq.com](https://console.groq.com))
-
-### 1. Clone & Install
+Prerequisites: Node.js 18+, 6 Hedera Testnet accounts, Groq API key.
 
 ```bash
-git clone https://github.com/YourUsername/AgentShield.git
+git clone https://github.com/AqilJaique/AgentShield.git
 cd AgentShield
 npm install
-```
-
-### 2. Configure Environment
-
-Copy `.env.example` to `.env` and fill in your 6 Hedera testnet account IDs + private keys, plus your Groq API key:
-
-```bash
+cd dashboard && npm install && cd ..
 cp .env.example .env
-```
+# Fill in account IDs, private keys, and Groq API key
 
-### 3. Run Setup Scripts (in order)
+# Setup (run in order)
+npx tsx scripts/setup-topics.ts       # Copy topic IDs to .env
+npx tsx scripts/create-tokens.ts      # Copy token IDs to .env
+npx tsx scripts/register-agents.ts    # Register in HOL Registry
+npx tsx scripts/fund-agents.ts        # Fund agent accounts
 
-```bash
-# Step 1: Create HCS topics (Intent, Signal, Reputation)
-npx tsx scripts/setup-topics.ts
-# -> Copy the 3 topic IDs to .env
-
-# Step 2: Create HTS tokens ($SHIELD fungible + Reputation NFT)
-npx tsx scripts/create-tokens.ts
-# -> Copy token IDs to .env
-
-# Step 3: Register all agents in HOL Registry
-npx tsx scripts/register-agents.ts
-
-# Step 4: Fund agent accounts with test HBAR
-npx tsx scripts/fund-agents.ts
-```
-
----
-
-## Running the Protocol
-
-Start each agent in a separate terminal:
-
-```bash
-# Terminal 1: Coordinator (must start first)
-npm run coordinator
-
-# Terminal 2: Sentinel Keeper
+# Run agents (each in its own terminal)
+npm run coordinator                   # Must start first
 npm run sentinel:keeper
-
-# Terminal 3: Sentinel Arb
 npm run sentinel:arb
-
-# Terminal 4: Sentinel Whale
 npm run sentinel:whale
-
-# Terminal 5: Observer
 npm run observer
+
+# Run dashboard
+cd dashboard && npm run dev           # Open http://localhost:3000
 ```
 
-Once running, you will see:
-- Sentinels publishing intents to the Intent Topic
-- Coordinator calculating risk scores and broadcasting signals
-- Sentinels adjusting their behavior based on signals
-- Observer reporting current risk status
-
----
-
-## Flash Crash Demo
-
-Run the built-in flash crash simulation to demonstrate the circuit breaker in action:
-
-```bash
-npm run demo:crash
-```
-
-This runs a 4-phase scenario:
-
-| Phase | Duration | Description |
-|-------|----------|-------------|
-| 1. Normal | 30s | 3 normal trades at regular intervals |
-| 2. Tension | 20s | 6 trades at higher volume, building pressure |
-| 3. Cascade | 15s | 15 high-urgency liquidations from 3 sentinels simultaneously |
-| 4. Recovery | 15s | Waits for risk to subside as the window clears |
-
-Expected signal progression: GREEN -> YELLOW -> RED -> (cooldown) -> GREEN
-
----
-
-## Hedera Testnet Addresses
+## Testnet Deployment
 
 ### Agent Operator Accounts
 
-These are the primary accounts used by each agent to submit HCS messages and interact with Hedera:
+| Agent | Account ID | Role |
+|-------|-----------|------|
+| Coordinator | 0.0.7275085 | Risk aggregation and signal broadcast |
+| Sentinel Keeper | 0.0.8268231 | Liquidation bot |
+| Sentinel Arb | 0.0.8291404 | Arbitrage bot |
+| Sentinel Whale | 0.0.8291411 | Large position mover |
+| Observer | 0.0.8291431 | Human-facing chat agent |
+| Treasury | 0.0.8291460 | Fund distribution |
 
-| Agent | Role | Account ID | Network |
-|-------|------|-----------|---------|
-| Coordinator | Risk aggregation & signal broadcast | `0.0.7275085` | Testnet |
-| Sentinel Keeper | Liquidation bot | `0.0.8268231` | Testnet |
-| Sentinel Arb | Arbitrage bot | `0.0.8291404` | Testnet |
-| Sentinel Whale | Large position mover | `0.0.8291411` | Testnet |
-| Observer | Human-facing chat agent | `0.0.8291431` | Testnet |
-| Treasury | Fund distribution | `0.0.8291460` | Testnet |
+### HOL Registry Agents
 
----
+All 5 agents registered via HCS-10. Verify at moonscape.tech.
 
-## HOL Registry (HCS-10) Agent Registration
+| Agent | HOL Account | Inbound Topic | Outbound Topic | Profile Topic | Registration TX |
+|-------|------------|---------------|----------------|---------------|----------------|
+| Coordinator | 0.0.8299709 | 0.0.8299711 | 0.0.8299710 | 0.0.8299713 | 0.0.2659396@1773992772.031475119 |
+| Sentinel Keeper | 0.0.8299715 | 0.0.8299717 | 0.0.8299716 | 0.0.8299719 | 0.0.2659396@1773992873.484429300 |
+| Sentinel Arb | 0.0.8299726 | 0.0.8299730 | 0.0.8299729 | 0.0.8299732 | 0.0.2659396@1773992942.594361605 |
+| Sentinel Whale | 0.0.8299734 | 0.0.8299736 | 0.0.8299735 | 0.0.8299740 | 0.0.2659396@1773993057.429652056 |
+| Observer | 0.0.8299742 | 0.0.8299746 | 0.0.8299745 | 0.0.8299748 | 0.0.2659396@1773993122.791638818 |
 
-All 5 agents are registered in the [Hashgraph Online Registry](https://moonscape.tech) via the HCS-10 standard. Each registration creates a dedicated account, inbound/outbound topics, and an on-chain profile.
-
-### Coordinator
-
-| Field | Value |
-|-------|-------|
-| Display Name | `AgentShield Coordinator` |
-| Alias | `agentshield_coordinator` |
-| HOL Account | `0.0.8299709` |
-| Inbound Topic | `0.0.8299711` |
-| Outbound Topic | `0.0.8299710` |
-| Profile Topic | `0.0.8299713` |
-| Registration TX | `0.0.2659396@1773992772.031475119` |
-| Type | Autonomous |
-
-### Sentinel Keeper
-
-| Field | Value |
-|-------|-------|
-| Display Name | `AgentShield Sentinel Keeper` |
-| Alias | `agentshield_sentinel_keeper` |
-| HOL Account | `0.0.8299715` |
-| Inbound Topic | `0.0.8299717` |
-| Outbound Topic | `0.0.8299716` |
-| Profile Topic | `0.0.8299719` |
-| Registration TX | `0.0.2659396@1773992873.484429300` |
-| Type | Autonomous |
-
-### Sentinel Arb
-
-| Field | Value |
-|-------|-------|
-| Display Name | `AgentShield Sentinel Arb` |
-| Alias | `agentshield_sentinel_arb` |
-| HOL Account | `0.0.8299726` |
-| Inbound Topic | `0.0.8299730` |
-| Outbound Topic | `0.0.8299729` |
-| Profile Topic | `0.0.8299732` |
-| Registration TX | `0.0.2659396@1773992942.594361605` |
-| Type | Autonomous |
-
-### Sentinel Whale
-
-| Field | Value |
-|-------|-------|
-| Display Name | `AgentShield Sentinel Whale` |
-| Alias | `agentshield_sentinel_whale` |
-| HOL Account | `0.0.8299734` |
-| Inbound Topic | `0.0.8299736` |
-| Outbound Topic | `0.0.8299735` |
-| Profile Topic | `0.0.8299740` |
-| Registration TX | `0.0.2659396@1773993057.429652056` |
-| Type | Autonomous |
-
-### Observer
-
-| Field | Value |
-|-------|-------|
-| Display Name | `AgentShield Observer` |
-| Alias | `agentshield_observer` |
-| HOL Account | `0.0.8299742` |
-| Inbound Topic | `0.0.8299746` |
-| Outbound Topic | `0.0.8299745` |
-| Profile Topic | `0.0.8299748` |
-| Registration TX | `0.0.2659396@1773993122.791638818` |
-| Type | Manual |
-
----
-
-## HCS Topics
+### HCS Topics
 
 | Topic | ID | Purpose | Submit Key |
 |-------|----|---------|------------|
-| Intent Topic | `0.0.8291524` | Agents broadcast transaction intents before execution | Public (any agent) |
-| Signal Topic | `0.0.8291525` | Coordinator broadcasts GREEN/YELLOW/RED safety signals | Coordinator only |
-| Reputation Topic | `0.0.8291526` | Coordinator logs agent compliance and reputation events | Coordinator only |
+| Intent | 0.0.8291524 | Agents broadcast transaction intents before execution | Public |
+| Signal | 0.0.8291525 | Coordinator broadcasts GREEN/YELLOW/RED safety signals | Coordinator only |
+| Reputation | 0.0.8291526 | Coordinator logs agent compliance and reputation events | Coordinator only |
 
----
+### HTS Tokens
 
-## HTS Tokens
-
-| Token | ID | Type | Supply | Decimals | Purpose |
-|-------|----|------|--------|----------|---------|
-| $SHIELD | `0.0.8291529` | Fungible | 100,000,000 | 8 | Protocol governance and reward token |
-| Reputation NFT | `0.0.8291530` | Non-Fungible (Infinite) | Unlimited | 0 | On-chain reputation badges for compliant agents |
-
----
+| Token | ID | Type | Supply |
+|-------|----|------|--------|
+| SHIELD | 0.0.8291529 | Fungible (8 decimals) | 100,000,000 |
+| Reputation NFT | 0.0.8291530 | Non-Fungible (Infinite) | Minted on compliance milestones |
 
 ## Risk Scoring Engine
 
-The Coordinator calculates a composite risk score (0.0 — 1.0) using a **sliding 60-second window** of all received intents.
+The Coordinator calculates a composite risk score (0.0 to 1.0) using a sliding 60-second window of all received intents.
 
-### Scoring Weights
-
-| Metric | Weight | Description |
-|--------|--------|-------------|
-| Volume | 30% | Total USD volume in window, normalized to $1M threshold |
-| Asset Concentration | 25% | Largest single asset as fraction of total volume |
-| Sell Pressure | 25% | Ratio of sell/liquidate intents to total intent count |
-| Velocity | 20% | Intents per second, normalized to 5/sec threshold |
-
-### Score Formula
+### Scoring Formula
 
 ```
-score = (0.30 * volumeNorm) + (0.25 * concentration) + (0.25 * sellPressure) + (0.20 * velocityNorm)
+score = (0.30 x volume) + (0.25 x concentration) + (0.25 x sellPressure) + (0.20 x velocity)
 ```
 
-Where each component is clamped to `[0, 1]`.
+| Metric | Weight | Description | Normalization |
+|--------|--------|-------------|---------------|
+| Volume | 30% | Total USD volume in window | Capped at USD 1M |
+| Asset Concentration | 25% | Largest single asset as fraction of total | 0 to 1 |
+| Sell Pressure | 25% | Ratio of sell/liquidate intents to total | 0 to 1 |
+| Velocity | 20% | Intents per second | Capped at 5/sec |
 
 ### Signal Thresholds
 
-| Score Range | Signal | Meaning |
-|-------------|--------|---------|
-| 0.00 — 0.39 | GREEN | Safe to proceed normally |
-| 0.40 — 0.69 | YELLOW | Elevated risk — reduce exposure |
-| 0.70 — 1.00 | RED | High risk — abort or wait |
+| Score | Signal | Agent Behavior |
+|-------|--------|---------------|
+| 0.00 to 0.39 | GREEN | Proceed normally, no restrictions |
+| 0.40 to 0.69 | YELLOW | Reduce position size by 50%, add 5 second delay |
+| 0.70 to 1.00 | RED | Abort transaction entirely, wait 15 seconds |
 
-### LLM Reasoning
-
-After computing the score, the Coordinator sends the metrics to **Groq (llama-3.3-70b-versatile)** to generate a human-readable explanation of the current risk state. This reasoning is included in every signal broadcast.
-
----
-
-## Signal Compliance Behavior
-
-When a Sentinel agent receives a signal from the Coordinator, it adjusts its behavior automatically:
-
-| Signal | Size Adjustment | Delay Added | Action |
-|--------|----------------|-------------|--------|
-| GREEN | 100% (no change) | 0s | Proceed normally |
-| YELLOW | 50% (halved) | +5s | Reduce position size, wait before executing |
-| RED | 0% (abort) | +15s | Cancel transaction entirely, wait before retrying |
-
----
+After computing the score, the Coordinator sends metrics to Groq (llama-3.3-70b-versatile) to generate a human-readable explanation included in every signal broadcast.
 
 ## HCS Message Protocol
 
-All HCS messages use a standardized JSON format with the `agentshield` protocol identifier.
+All messages use protocol identifier `agentshield` and operation field `op`.
 
 ### Intent Message
 
@@ -402,13 +333,13 @@ All HCS messages use a standardized JSON format with the `agentshield` protocol 
 {
   "p": "agentshield",
   "op": "intent",
-  "agent": "0.0.8268231",
+  "agent_id": "0.0.8268231",
   "action": "liquidate",
   "asset": "HBAR/USDT",
   "size_usd": 31688.37,
   "direction": "sell",
-  "urgency": "medium",
-  "ts": 1773992700000
+  "urgency": "high",
+  "timestamp": 1773992700000
 }
 ```
 
@@ -419,13 +350,20 @@ All HCS messages use a standardized JSON format with the `agentshield` protocol 
   "p": "agentshield",
   "op": "signal",
   "level": "YELLOW",
-  "score": 0.55,
-  "reasoning": "Risk is moderate due to high sell pressure...",
-  "intents_in_window": 3,
-  "volume_usd": 449171.25,
-  "top_asset": "HBAR/USDC",
-  "recommended_delay_s": 5,
-  "ts": 1773992703000
+  "risk_score": 0.55,
+  "reasoning": "Moderate risk due to high sell pressure...",
+  "affected_assets": ["HBAR/USDC"],
+  "recommended_delay_ms": 5000,
+  "metrics": {
+    "totalIntents": 3,
+    "totalVolumeUsd": 449171.25,
+    "sellPressure": 1.0,
+    "assetConcentration": 0.67,
+    "topAsset": "HBAR/USDC",
+    "velocityPerSecond": 0.1,
+    "riskScore": 0.55
+  },
+  "timestamp": 1773992703000
 }
 ```
 
@@ -435,43 +373,48 @@ All HCS messages use a standardized JSON format with the `agentshield` protocol 
 {
   "p": "agentshield",
   "op": "reputation",
-  "agent": "0.0.8268231",
+  "agent_id": "0.0.8268231",
+  "event": "compliance",
   "signal_level": "YELLOW",
-  "compliant": true,
-  "ts": 1773992710000
+  "complied": true,
+  "trust_score": 0.95,
+  "timestamp": 1773992710000
 }
 ```
 
----
+## Demo Scenarios
 
-## Environment Variables
+Three built-in scenarios demonstrate the circuit breaker under different conditions:
 
-See `.env.example` for the full list. Key variables:
+| Command | Scenario | Expected Signal Path |
+|---------|----------|---------------------|
+| `npm run demo:crash` | Flash crash: 4 phases from normal to cascade to recovery | GREEN to YELLOW to RED to GREEN |
+| `npm run demo:whale` | Single whale dumps large position rapidly | GREEN to YELLOW to RED to GREEN |
+| `npm run demo:normal` | Normal market trading for 2 minutes | Stays GREEN throughout |
 
-| Variable | Description |
-|----------|-------------|
-| `HEDERA_NETWORK` | `testnet` or `mainnet` |
-| `COORDINATOR_ACCOUNT_ID` | Coordinator's Hedera account |
-| `COORDINATOR_PRIVATE_KEY` | Coordinator's ED25519 private key |
-| `SENTINEL_KEEPER_ACCOUNT_ID` | Keeper sentinel's Hedera account |
-| `SENTINEL_ARB_ACCOUNT_ID` | Arb sentinel's Hedera account |
-| `SENTINEL_WHALE_ACCOUNT_ID` | Whale sentinel's Hedera account |
-| `OBSERVER_ACCOUNT_ID` | Observer agent's Hedera account |
-| `TREASURY_ACCOUNT_ID` | Treasury for fund distribution |
-| `INTENT_TOPIC_ID` | HCS topic for intent broadcasts |
-| `SIGNAL_TOPIC_ID` | HCS topic for signal broadcasts |
-| `REPUTATION_TOPIC_ID` | HCS topic for reputation events |
-| `SHIELD_TOKEN_ID` | $SHIELD fungible token |
-| `REPUTATION_NFT_ID` | Reputation NFT collection |
-| `GROQ_API_KEY` | Groq API key for LLM reasoning |
-| `REGISTRY_URL` | HOL guarded registry URL |
+## Findings
 
----
+_Reserved for strategic insights discovered during development. To be populated before final submission._
+
+## Go-To-Market Strategy
+
+Phase 1 (Current): Testnet MVP demonstrating the coordination mechanism with simulated DeFi scenarios on Hedera.
+
+Phase 2 (Post-Hackathon): Integration partnerships with existing Hedera DeFi protocols (Bonzo Finance, SaucerSwap) to connect real liquidation and swap events to the intent broadcast layer.
+
+Phase 3 (Mainnet): Protocol fee model where DeFi protocols subscribe to the signal feed. Premium analytics tier for institutional participants. Reputation scores as composable DeFi primitives.
+
+Revenue streams: Signal subscription fees per protocol. Premium risk analytics API. Reputation data licensing. SHIELD token governance and staking.
+
+## Roadmap
+
+| Phase | Timeline | Milestones |
+|-------|----------|-----------|
+| MVP | Q1 2026 | Testnet deployment, hackathon submission, 5 registered agents |
+| Integration | Q2 2026 | Bonzo Finance and SaucerSwap testnet integration, real liquidation data |
+| Mainnet Alpha | Q3 2026 | Mainnet deployment, protocol partnerships, token distribution |
+| Multi-Chain | Q4 2026 | Cross-chain intent aggregation, governance launch |
 
 ## License
 
-MIT License. See [LICENSE](./LICENSE) for details.
-
----
-
-**Built with Hedera, Hashgraph Online, Groq, and LangChain for the Hello Future Apex Hackathon 2026.**
+MIT License. See LICENSE for details.

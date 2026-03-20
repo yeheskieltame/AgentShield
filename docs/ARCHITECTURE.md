@@ -1,154 +1,135 @@
-# AgentShield Architecture
-
-For full details, see [README.md](../README.md).
+# Architecture
 
 ## System Overview
 
+AgentShield operates as a five-layer stack. No custom smart contracts are deployed. All on-chain logic uses Hedera native services.
+
+```mermaid
+graph TB
+    subgraph L1["Layer 1: AI Agents"]
+        direction LR
+        SK[Sentinel Keeper]
+        SA[Sentinel Arb]
+        SW[Sentinel Whale]
+        CO[Coordinator]
+        OB[Observer]
+    end
+
+    subgraph L2["Layer 2: Hedera Native Services"]
+        direction LR
+        HCS[HCS Topics x3]
+        HTS[HTS Tokens x2]
+        ACC[Account Service]
+        MN[Mirror Node API]
+    end
+
+    subgraph L3["Layer 3: HOL Integration"]
+        direction LR
+        REG[HCS-10 Registry]
+        COM[Agent Communication]
+    end
+
+    subgraph L4["Layer 4: DeFi Protocol Interaction"]
+        direction LR
+        BF[Bonzo Finance<br/>Read-only]
+        SS[SaucerSwap<br/>Read-only]
+    end
+
+    subgraph L5["Layer 5: Dashboard"]
+        direction LR
+        UI[Next.js App]
+        RT[Real-time Polling]
+        CHAT[AI Chat via Groq]
+    end
+
+    L1 --> L2
+    L1 --> L3
+    L1 -.-> L4
+    L2 --> L5
 ```
-+------------------------------------------------------------------+
-|  LAYER 1: AI AGENTS (TypeScript / Node.js)                       |
-|                                                                   |
-|  Sentinel-Keeper  Sentinel-Arb  Sentinel-Whale     Observer      |
-|  (liquidations)   (swaps)       (large xfers)      (human chat)  |
-|       |               |              |                  |         |
-|       +-------+-------+------+-------+                  |         |
-|               |              |                          |         |
-|          Intent Topic    Signal Topic              HCS-10 Chat   |
-|               |              ^                          |         |
-|               v              |                          |         |
-|          COORDINATOR AGENT                              |         |
-|          - Risk Engine (60s sliding window)              |         |
-|          - LLM Reasoning (Groq / Llama-3.3-70b)         |         |
-|          - Signal + Reputation Broadcast                 |         |
-+------------------------------------------------------------------+
-|  LAYER 2: HEDERA NATIVE SERVICES                                 |
-|                                                                   |
-|  HCS Topics            HTS Tokens            HBAR Transfers      |
-|  - Intent (public)     - $SHIELD (fungible)  - Agent funding     |
-|  - Signal (coord key)  - Reputation NFT      - Reward payouts    |
-|  - Reputation (coord)                                            |
-+------------------------------------------------------------------+
-|  LAYER 3: HOL INTEGRATION (HCS-10)                               |
-|  All 5 agents registered in Hashgraph Online Registry            |
-|  Discoverable at moonscape.tech, agent-to-agent messaging        |
-+------------------------------------------------------------------+
-|  LAYER 4: DeFi PROTOCOL INTERACTION                              |
-|  Read-only feeds from Bonzo Finance and SaucerSwap (testnet)     |
-+------------------------------------------------------------------+
-|  LAYER 5: DASHBOARD (Next.js + Tailwind)                         |
-|  Polls Hedera Mirror Node REST API for live signal/intent data   |
-+------------------------------------------------------------------+
-```
-
-## 5 Layers
-
-1. **AI Agents** -- TypeScript processes that publish intents, evaluate risk, broadcast signals, and chat with humans. Each runs in its own terminal.
-2. **Hedera Native Services** -- HCS for ordered messaging, HTS for $SHIELD tokens and reputation NFTs, HBAR for funding.
-3. **HOL Integration** -- HCS-10 agent registration gives each agent an account, inbound/outbound topics, and a public profile.
-4. **DeFi Protocol Interaction** -- Read-only price/position data from testnet protocols (no custom smart contracts).
-5. **Dashboard** -- Next.js app that visualizes signals, intents, and agent reputation in real time.
-
-## Data Flow
-
-```
-Sentinel detects opportunity
-  --> publishes Intent to HCS Intent Topic
-    --> Coordinator polls via Mirror Node (every 3s)
-      --> Risk Engine calculates composite score (60s window)
-        --> Groq LLM generates human-readable reasoning
-          --> Coordinator broadcasts Signal to Signal Topic
-            --> Sentinels read signal, adjust behavior
-              --> Coordinator records compliance to Reputation Topic
-                --> On milestone: mint Reputation NFT + distribute $SHIELD reward
-```
-
-## Risk Scoring
-
-Composite score in range [0.0, 1.0], computed over a **sliding 60-second window** of all intents.
-
-### Formula
-
-```
-score = 0.30 * volumeNorm
-      + 0.25 * assetConcentration
-      + 0.25 * sellPressure
-      + 0.20 * velocityNorm
-```
-
-| Metric | Weight | Description |
-|--------|--------|-------------|
-| Volume | 30% | Total USD volume, normalized to $1M threshold |
-| Asset Concentration | 25% | Largest single asset as fraction of total volume |
-| Sell Pressure | 25% | Ratio of sell/liquidate intents to total count |
-| Velocity | 20% | Intents per second, normalized to 5/sec threshold |
-
-Each component is clamped to [0, 1].
-
-### Signal Thresholds
-
-| Score | Signal | Agent Behavior |
-|-------|--------|----------------|
-| 0.00 - 0.39 | GREEN | Proceed normally (100% size, no delay) |
-| 0.40 - 0.69 | YELLOW | Reduce to 50% size, +5s delay |
-| 0.70 - 1.00 | RED | Abort transaction, +15s wait |
 
 ## Agent Types
 
-| Agent | Instances | Role |
-|-------|-----------|------|
-| **Coordinator** | 1 | Aggregates intents, scores risk, broadcasts signals, manages reputation |
-| **Sentinel Keeper** | 1 | Simulates liquidation bot |
-| **Sentinel Arb** | 1 | Simulates arbitrage bot |
-| **Sentinel Whale** | 1 | Simulates large position mover |
-| **Observer** | 1 | Human-facing chat agent via HCS-10 |
+| Agent | Count | Purpose | Autonomy |
+|-------|-------|---------|----------|
+| Coordinator | 1 | Aggregates intents, calculates risk, broadcasts signals, mints reputation NFTs | Autonomous |
+| Sentinel Keeper | 1 | Simulates liquidation bot. Publishes intent before executing. Complies with signals. | Autonomous |
+| Sentinel Arb | 1 | Simulates arbitrage bot. Publishes swap intents. Adjusts size based on signals. | Autonomous |
+| Sentinel Whale | 1 | Simulates large position mover. Publishes large transfer intents. | Autonomous |
+| Observer | 1 | Accepts natural language queries via HCS-10. Returns current risk status. | Manual |
 
-## HCS Message Protocol
+## Risk Engine
 
-All messages use `"p": "agentshield"` and an `"op"` field.
+The Coordinator maintains a sliding 60-second window of all received intents. On each new intent, it recalculates four metrics:
 
-### Intent (`op: "intent"`)
-
-```json
-{
-  "p": "agentshield",
-  "op": "intent",
-  "agent_id": "0.0.8268231",
-  "action": "liquidate",
-  "asset": "HBAR/USDC",
-  "size_usd": 31688.37,
-  "direction": "sell",
-  "urgency": "high",
-  "timestamp": 1773992700000
-}
+```mermaid
+graph LR
+    I[New Intent] --> W[60s Window]
+    W --> V[Volume<br/>30% weight]
+    W --> C[Concentration<br/>25% weight]
+    W --> S[Sell Pressure<br/>25% weight]
+    W --> VE[Velocity<br/>20% weight]
+    V --> SC[Composite Score<br/>0.0 to 1.0]
+    C --> SC
+    S --> SC
+    VE --> SC
+    SC -->|0.0-0.39| G[GREEN]
+    SC -->|0.40-0.69| Y[YELLOW]
+    SC -->|0.70-1.00| R[RED]
 ```
 
-### Signal (`op: "signal"`)
+The score is passed to Groq LLM (llama-3.3-70b-versatile) for natural language reasoning, then broadcast as a signal.
 
-```json
-{
-  "p": "agentshield",
-  "op": "signal",
-  "level": "YELLOW",
-  "risk_score": 0.55,
-  "reasoning": "Risk is moderate due to high sell pressure...",
-  "affected_assets": ["HBAR/USDC"],
-  "recommended_delay_ms": 5000,
-  "metrics": { "totalIntents": 8, "totalVolumeUsd": 449171, "..." : "..." },
-  "timestamp": 1773992703000
-}
+## Signal Compliance
+
+```mermaid
+sequenceDiagram
+    participant C as Coordinator
+    participant S as Sentinel
+
+    C->>S: Signal GREEN
+    Note right of S: Proceed normally<br/>100% size, 0s delay
+
+    C->>S: Signal YELLOW
+    Note right of S: Reduce exposure<br/>50% size, 5s delay
+
+    C->>S: Signal RED
+    Note right of S: Abort transaction<br/>0% size, 15s wait
 ```
 
-### Reputation (`op: "reputation"`)
+Compliance is tracked per agent. Every 10 compliant actions triggers a Reputation NFT mint and 1000 SHIELD token reward.
 
-```json
-{
-  "p": "agentshield",
-  "op": "reputation",
-  "agent_id": "0.0.8268231",
-  "event": "compliance",
-  "signal_level": "YELLOW",
-  "complied": true,
-  "trust_score": 0.95,
-  "timestamp": 1773992710000
-}
+## Reputation System
+
+```mermaid
+graph LR
+    S[Signal Broadcast] --> T[Track Compliance]
+    T -->|Compliant| C[Increment Counter]
+    T -->|Violation| V[Log Violation]
+    C -->|Every 10| M[Mint Reputation NFT]
+    M --> D[Distribute 1000 SHIELD]
+    C --> P[Publish ReputationEvent to HCS]
+    V --> P
+```
+
+## HCS Topic Architecture
+
+| Topic | Submit Key | Content | Frequency |
+|-------|-----------|---------|-----------|
+| Intent | Public (any agent) | Transaction intents with action, asset, size, direction, urgency | Every 3-45 seconds per agent |
+| Signal | Coordinator private key | Risk level, score, reasoning, metrics, recommended delay | On risk level change or threshold |
+| Reputation | Coordinator private key | Compliance events, trust scores | After each signal broadcast |
+
+## Dashboard Architecture
+
+The dashboard is a Next.js application that reads exclusively from Hedera Mirror Node REST API. No backend database.
+
+```mermaid
+graph LR
+    MN[Hedera Mirror Node] -->|GET /topics/ID/messages| P[Polling Hook<br/>3s interval]
+    P --> H[Home Page<br/>Risk gauge, intents, signals]
+    P --> A[Agents Page<br/>Registry, compliance, balances]
+    P --> AN[Analytics Page<br/>Charts, heatmap]
+    P --> E[Explorer Page<br/>Raw HCS messages, tokens]
+    G[Groq API] -->|POST /api/chat| C[Chat Bubble<br/>AI responses]
 ```

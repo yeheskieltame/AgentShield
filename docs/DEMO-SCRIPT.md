@@ -1,157 +1,85 @@
-# AgentShield Demo Video Script
+# Demo Video Script
 
-**Target length:** 5 minutes max
-**Format:** Screen recording with voiceover
+Target length: 5 minutes. Format: screen recording with voiceover.
 
----
+## 0:00 to 0:45 | Problem Statement
 
-## 0:00 - 0:45 -- Problem Statement
+Show on screen: News articles and data about the October 2025 crash.
 
-**Show on screen:** Slide or browser showing news articles about the Oct 2025 crash.
+Script:
 
-**Script:**
+"On October 10, 2025, the crypto market experienced its largest liquidation cascade in history. 19 billion dollars in leveraged positions were wiped out in hours. 1.7 million traders were affected. Bitcoin dropped 14 percent. Solana fell over 40 percent.
 
-> On October 10, 2025, the crypto market experienced its largest liquidation cascade in history. $19 billion in leveraged positions were wiped out in hours. 1.7 million traders were affected. Bitcoin dropped 14%. Solana fell over 40%.
->
-> The root cause was not fundamental collapse -- it was structural failure. Thousands of AI agents, liquidation bots, and keepers all tried to deleverage at once, creating a self-reinforcing doom loop. Unlike traditional markets, crypto has no coordinated circuit breaker.
->
-> AgentShield solves this.
+The root cause was not fundamental collapse. It was structural failure. Thousands of AI agents, liquidation bots, and keepers all tried to deleverage simultaneously, creating a self-reinforcing doom loop. Unlike traditional markets, crypto has no coordinated circuit breaker.
 
-**Sources to show:**
-- https://insights4vc.substack.com/p/inside-the-19b-flash-crash
-- https://hackernoon.com/what-the-october-2025-flash-crash-taught-us-about-liquidations-and-why-defi-needs-better-fail-safe
+AgentShield solves this."
 
----
+## 0:45 to 1:30 | Solution and Architecture
 
-## 0:45 - 1:30 -- Solution and Architecture
+Show on screen: Architecture diagram from README.
 
-**Show on screen:** Architecture diagram from README (or the ASCII diagram from `docs/ARCHITECTURE.md`).
+Script:
 
-**Script:**
+"AgentShield is a pre-execution coordination layer. Before any AI agent executes a transaction, it broadcasts its intent to a shared Hedera Consensus Service topic. A Coordinator agent aggregates all intents in a 60-second sliding window, calculates a composite risk score using four weighted metrics, and uses an LLM to generate reasoning.
 
-> AgentShield is a pre-execution coordination layer for DeFi agents, built entirely on Hedera native services -- no custom smart contracts.
->
-> Here's how it works: AI agents broadcast their transaction intent to a shared HCS topic BEFORE executing. A Coordinator agent aggregates all intents in a 60-second sliding window and calculates a composite risk score using four weighted metrics -- volume, asset concentration, sell pressure, and velocity.
->
-> The Coordinator uses Groq's Llama-3.3-70b model to generate human-readable risk reasoning, then broadcasts a safety signal: GREEN means proceed, YELLOW means reduce exposure by 50%, RED means abort entirely.
->
-> Agents autonomously comply. Compliant agents earn on-chain reputation NFTs and $SHIELD token rewards. All of this runs on Hedera Testnet using HCS for messaging, HTS for tokens, and HCS-10 for agent registration.
+When risk is low, the Coordinator broadcasts GREEN. Agents proceed normally. When risk escalates, YELLOW signals agents to reduce position sizes by 50 percent. At critical levels, RED signals agents to abort entirely.
 
----
+This is voluntary, decentralized, and requires no smart contract pauses."
 
-## 1:30 - 3:30 -- Live Demo: Flash Crash Simulation
+## 1:30 to 3:30 | Live Demo
 
-### Setup (1:30 - 1:50)
+### Setup (pre-recorded)
 
-**Show on screen:** Terminal windows side by side + Dashboard in browser.
+Start the Coordinator in one terminal. Open the dashboard.
 
-**Run these commands:**
+### Phase 1: Normal Operation (30 seconds)
 
-```bash
-# Terminal 1: Start Coordinator
-npm run coordinator
-```
+Show on screen: Dashboard with GREEN signal, low risk score, normal intent feed.
 
-Wait for `[Coordinator] Running. Ctrl+C to stop.` to appear.
+"The system is live on Hedera Testnet. The Coordinator is monitoring. Risk score is low. Signal is GREEN. All agents are operating normally."
 
-```bash
-# Browser: Open dashboard
-# Navigate to http://localhost:3000
-```
+### Phase 2: Run Flash Crash Scenario
 
-**Script:**
-> Let me start the Coordinator agent. It's now listening for intents on the HCS Intent Topic via Mirror Node polling. The dashboard is live, showing current risk status as GREEN.
+Run `npm run demo:crash` in a new terminal.
 
-### Flash Crash Scenario (1:50 - 3:15)
+Show on screen: Dashboard updating in real-time.
 
-**Run this command in a new terminal:**
+"Now we simulate a flash crash. Multiple agents start publishing high-volume liquidation intents simultaneously."
 
-```bash
-# Terminal 2: Run flash crash simulation
-npm run demo:crash
-```
+### Phase 3: Circuit Breaker Activates
 
-**Script (narrate as each phase runs):**
+Show on screen: Risk gauge moving, signal changing to YELLOW then RED, intent feed showing activity.
 
-> I'm starting our flash crash simulation. It has four phases.
->
-> **Phase 1 -- Normal trading.** Three small trades at regular intervals. The Coordinator sees low volume and low sell pressure. Risk score stays below 0.4 -- we're GREEN.
->
-> *(Wait ~30s, point to dashboard showing GREEN signal)*
->
-> **Phase 2 -- Tension building.** Six trades at higher volume, mix of liquidations and swaps. Watch the risk score climbing... we just hit YELLOW. The Coordinator is telling agents to reduce position sizes by 50% and add a 5-second delay.
->
-> *(Wait ~20s, point to YELLOW signal on dashboard)*
->
-> **Phase 3 -- Cascade attempt.** Now 15 high-urgency liquidation intents hit simultaneously from three different agents. This is the doom loop scenario. Watch the score spike...
->
-> *(Point to dashboard)* There it is -- RED signal. Score above 0.7. The Coordinator is telling all agents to abort and wait 15 seconds. In a real scenario, this prevents the cascade from amplifying.
->
-> *(Wait ~15s)*
->
-> **Phase 4 -- Recovery.** No new intents. The 60-second window clears. Risk subsides... and we're back to GREEN.
+"Watch the risk score climb. The Coordinator detects the cascade pattern. Signal transitions from GREEN to YELLOW. Agents automatically reduce their position sizes by 50 percent.
 
-### Show HCS Messages (3:15 - 3:30)
+As pressure continues, the signal goes RED. All agents abort their transactions. The circuit breaker has activated. No central authority made this decision. The agents collectively recognized the risk and stopped."
 
-**Show on screen:** Dashboard showing intent feed, signal history, and reputation events.
+### Phase 4: Recovery
 
-**Script:**
-> Every intent, signal, and reputation event is recorded on-chain via HCS. Here you can see the full timeline -- intents from sentinels, signal transitions from the Coordinator, and compliance records. All verifiable on Hedera Testnet.
+Show on screen: Risk subsiding, signal returning to GREEN.
 
----
+"As the 60-second window clears, intents drop off. The Coordinator recalculates. Risk score falls below threshold. Signal returns to GREEN. Agents resume normal operation. The cascade was prevented."
 
-## 3:30 - 4:15 -- HOL Integration
+## 3:30 to 4:15 | HOL Integration and Chat
 
-### Show Agent Registry (3:30 - 3:50)
+Show on screen: moonscape.tech showing registered agents.
 
-**Show on screen:** Browser at https://moonscape.tech
+"All five agents are registered in the Hashgraph Online Registry via HCS-10. They are discoverable, chattable, and composable."
 
-**Script:**
-> All five AgentShield agents are registered in the Hashgraph Online Registry using the HCS-10 standard. Here on moonscape.tech you can see our Coordinator, three Sentinels, and the Observer agent -- each with their own inbound/outbound topics for agent-to-agent communication.
+Show on screen: Chat bubble on dashboard.
 
-**Navigate to:** Search for "agentshield" on moonscape.tech. Show the Coordinator entry with its account, topics, and profile.
+"Users can chat with the Observer agent in natural language. It provides real-time risk assessments powered by Groq LLM."
 
-### Demo HCS-10 Chat (3:50 - 4:15)
+Type: "What is the current risk level?"
 
-**Show on screen:** Terminal running Observer + HCS-10 chat interaction.
+Show the AI response.
 
-**Script:**
-> The Observer agent uses HCS-10 for human-agent communication. I can send a message asking about current risk status, and the Observer responds with the latest signal information -- all routed through Hedera Consensus Service. This demonstrates the HOL standard for trustless agent-to-agent and human-to-agent messaging.
+## 4:15 to 5:00 | Hedera Integration and Roadmap
 
----
+Show on screen: Explorer page showing HCS topics, tokens, transaction hashes.
 
-## 4:15 - 5:00 -- Roadmap and Closing
+"AgentShield uses five Hedera native services. HCS for intent and signal broadcast. HTS for the SHIELD token and Reputation NFTs. Account Service for agent management. Mirror Node for real-time data. HCS-10 for agent registration and communication.
 
-**Show on screen:** Slide with roadmap bullets.
+Next steps: integration with Bonzo Finance and SaucerSwap on testnet, mainnet deployment in Q3 2026, and multi-chain expansion for cross-chain intent aggregation.
 
-**Script:**
-
-> **What we built for this hackathon:**
-> - 5 AI agents coordinating via HCS with LLM-powered risk reasoning
-> - Real-time risk scoring with 4-factor weighted model
-> - Autonomous signal compliance with on-chain reputation tracking
-> - $SHIELD token rewards and reputation NFTs via HTS
-> - Full HCS-10 integration with Hashgraph Online Registry
-> - Live dashboard polling Mirror Node
->
-> **Roadmap:**
-> - Real DeFi protocol integration (Bonzo Finance, SaucerSwap production feeds)
-> - Staking mechanism -- agents stake $SHIELD tokens, slashed for non-compliance
-> - Cross-protocol coordination -- multiple DeFi protocols sharing one circuit breaker
-> - Mainnet deployment with governance DAO
->
-> AgentShield proves that a voluntary, decentralized circuit breaker is possible using Hedera's native services. No custom smart contracts. No centralized kill switches. Just AI agents coordinating through consensus.
->
-> Thank you.
-
----
-
-## Checklist Before Recording
-
-- [ ] All 6 Hedera testnet accounts funded
-- [ ] `.env` fully configured
-- [ ] Coordinator starts without errors
-- [ ] Dashboard loads at localhost:3000
-- [ ] `npm run demo:crash` runs the full 4-phase scenario
-- [ ] Agents visible on moonscape.tech
-- [ ] Video is under 5 minutes
+AgentShield. Preventing the next 19 billion dollar cascade."
