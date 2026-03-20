@@ -32,10 +32,10 @@ export function RiskScoreChart({ signals }: { signals: Signal[] }) {
           <AreaChart data={data}>
             <defs>
               <linearGradient id="riskGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#ef4444" stopOpacity={0.5} />
-                <stop offset="35%" stopColor="#eab308" stopOpacity={0.3} />
-                <stop offset="70%" stopColor="#22c55e" stopOpacity={0.2} />
-                <stop offset="100%" stopColor="#22c55e" stopOpacity={0.05} />
+                <stop offset="0%" stopColor="#ef4444" stopOpacity={0.8} />
+                <stop offset="35%" stopColor="#eab308" stopOpacity={0.6} />
+                <stop offset="70%" stopColor="#22c55e" stopOpacity={0.4} />
+                <stop offset="100%" stopColor="#22c55e" stopOpacity={0.1} />
               </linearGradient>
               <linearGradient id="strokeGrad" x1="0" y1="0" x2="1" y2="0">
                 <stop offset="0%" stopColor="#06b6d4" />
@@ -43,13 +43,13 @@ export function RiskScoreChart({ signals }: { signals: Signal[] }) {
                 <stop offset="100%" stopColor="#a855f7" />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,180,255,0.06)" />
-            <XAxis dataKey="time" tick={{ fontSize: 10, fill: '#cbd5e1' }} axisLine={{ stroke: 'rgba(100,180,255,0.1)' }} />
-            <YAxis domain={[0, 1]} tick={{ fontSize: 10, fill: '#cbd5e1' }} axisLine={{ stroke: 'rgba(100,180,255,0.1)' }} />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+            <XAxis dataKey="time" tick={{ fontSize: 10, fill: '#e2e8f0' }} axisLine={{ stroke: 'rgba(255,255,255,0.15)' }} tickLine={{ stroke: 'rgba(255,255,255,0.1)' }} />
+            <YAxis domain={[0, 1]} tick={{ fontSize: 10, fill: '#e2e8f0' }} axisLine={{ stroke: 'rgba(255,255,255,0.15)' }} tickLine={{ stroke: 'rgba(255,255,255,0.1)' }} />
             <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: '#e2e8f0' }} />
-            <Area type="monotone" dataKey="score" stroke="url(#strokeGrad)" fill="url(#riskGrad)" strokeWidth={2.5}
-              dot={{ fill: '#06b6d4', strokeWidth: 0, r: 3 }}
-              activeDot={{ r: 5, fill: '#06b6d4', stroke: '#fff', strokeWidth: 1 }} />
+            <Area type="monotone" dataKey="score" stroke="url(#strokeGrad)" fill="url(#riskGrad)" strokeWidth={3}
+              dot={{ fill: '#06b6d4', strokeWidth: 0, r: 4 }}
+              activeDot={{ r: 6, fill: '#06b6d4', stroke: '#fff', strokeWidth: 2 }} />
           </AreaChart>
         </ResponsiveContainer>
       )}
@@ -86,19 +86,19 @@ export function VolumeChart({ intents }: { intents: Intent[] }) {
       ) : (
         <ResponsiveContainer width="100%" height={180}>
           <BarChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(100,180,255,0.06)" />
-            <XAxis dataKey="time" tick={{ fontSize: 10, fill: '#cbd5e1' }} axisLine={{ stroke: 'rgba(100,180,255,0.1)' }} />
-            <YAxis tick={{ fontSize: 10, fill: '#cbd5e1' }} tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}K`} axisLine={{ stroke: 'rgba(100,180,255,0.1)' }} />
+            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+            <XAxis dataKey="time" tick={{ fontSize: 10, fill: '#e2e8f0' }} axisLine={{ stroke: 'rgba(255,255,255,0.15)' }} tickLine={{ stroke: 'rgba(255,255,255,0.1)' }} />
+            <YAxis tick={{ fontSize: 10, fill: '#e2e8f0' }} tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}K`} axisLine={{ stroke: 'rgba(255,255,255,0.15)' }} tickLine={{ stroke: 'rgba(255,255,255,0.1)' }} />
             <Tooltip
               contentStyle={tooltipStyle}
               labelStyle={{ color: '#e2e8f0', fontWeight: 700, marginBottom: 4 }}
               itemStyle={{ color: '#f1f5f9', padding: '2px 0' }}
               formatter={(val: number, name: string) => [`$${(val / 1000).toFixed(0)}K`, name]}
-              cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+              cursor={{ fill: 'rgba(255,255,255,0.08)' }}
             />
-            <Bar dataKey="liquidate" stackId="a" fill="#06b6d4" radius={[0, 0, 0, 0]} fillOpacity={0.9} />
-            <Bar dataKey="swap" stackId="a" fill="#818cf8" fillOpacity={0.9} />
-            <Bar dataKey="large_transfer" stackId="a" fill="#a855f7" radius={[4, 4, 0, 0]} fillOpacity={0.9} />
+            <Bar dataKey="liquidate" stackId="a" fill="#06b6d4" radius={[0, 0, 0, 0]} fillOpacity={1} />
+            <Bar dataKey="swap" stackId="a" fill="#818cf8" fillOpacity={1} />
+            <Bar dataKey="large_transfer" stackId="a" fill="#a855f7" radius={[4, 4, 0, 0]} fillOpacity={1} />
           </BarChart>
         </ResponsiveContainer>
       )}

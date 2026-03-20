@@ -16,7 +16,7 @@ export default function Header() {
 
   return (
     <header
-      className="fixed top-4 left-4 md:left-24 right-4 md:right-6 z-40 flex items-center justify-between px-3 md:px-5 py-2.5"
+      className="fixed top-4 left-4 md:left-24 right-4 md:right-6 z-40 flex items-center justify-between px-3 md:px-6 py-2 md:py-1.5"
       style={{
         background: 'rgba(255, 255, 255, 0.04)',
         backdropFilter: 'blur(14px) saturate(1.1)',
@@ -28,21 +28,22 @@ export default function Header() {
     >
       {/* Left: logo + brand + separator + page title */}
       <div className="flex items-center gap-3">
-        {/* Logo */}
-        <Image src="/agentshield-logo-64px.png" alt="AgentShield" width={32} height={32} className="flex-shrink-0" />
+        {/* Logo — small on mobile, bigger on desktop */}
+        <Image src="/agentshield-logo-64px.png" alt="AgentShield" width={32} height={32} className="flex-shrink-0 md:hidden" />
+        <Image src="/agentshield-logo-256px.png" alt="AgentShield" width={64} height={64} className="flex-shrink-0 hidden md:block" />
 
-        {/* Brand text */}
+        {/* Brand text — stacked on desktop */}
         <div className="flex items-center gap-2">
-          <div>
-            <span className="text-sm font-bold text-white tracking-wide">AgentShield</span>
-            <span className="hidden sm:inline text-[9px] text-cyan-400 tracking-widest uppercase ml-1.5">DeFi Circuit Breaker</span>
+          <div className="flex flex-col leading-tight">
+            <span className="text-sm md:text-lg font-bold text-white tracking-wide uppercase">AGENTSHIELD</span>
+            <span className="hidden sm:block text-[9px] md:text-[10px] text-cyan-400 tracking-widest uppercase">DeFi Circuit Breaker</span>
           </div>
 
           {/* Separator */}
-          <div className="hidden sm:block h-5 w-px bg-white/15 mx-1" />
+          <div className="hidden sm:block h-6 md:h-8 w-px bg-white/15 mx-2" />
 
           {/* Page title */}
-          <span className="hidden sm:inline text-sm font-semibold text-white/80">{pageTitle}</span>
+          <span className="hidden sm:inline text-sm md:text-base font-semibold text-white/80">{pageTitle}</span>
         </div>
       </div>
 

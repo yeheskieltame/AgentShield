@@ -12,9 +12,9 @@ function AreaSparkline({ data, color }: { data: number[]; color: string }) {
   if (data.length < 2) {
     // Show placeholder wave when no data
     return (
-      <svg width="100%" height="50" viewBox="0 0 120 50" preserveAspectRatio="none" className="opacity-30">
-        <path d="M0 40 Q20 30 40 35 Q60 25 80 30 Q100 20 120 25 L120 50 L0 50 Z" fill={color} fillOpacity="0.15" />
-        <path d="M0 40 Q20 30 40 35 Q60 25 80 30 Q100 20 120 25" fill="none" stroke={color} strokeWidth="1.5" />
+      <svg width="100%" height="50" viewBox="0 0 120 50" preserveAspectRatio="none" className="opacity-60">
+        <path d="M0 40 Q20 30 40 35 Q60 25 80 30 Q100 20 120 25 L120 50 L0 50 Z" fill={color} fillOpacity="0.3" />
+        <path d="M0 40 Q20 30 40 35 Q60 25 80 30 Q100 20 120 25" fill="none" stroke={color} strokeWidth="2.5" />
       </svg>
     );
   }
@@ -38,13 +38,13 @@ function AreaSparkline({ data, color }: { data: number[]; color: string }) {
     <svg width="100%" height="50" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none">
       <defs>
         <linearGradient id={`grad-${color.replace('#', '')}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.3" />
-          <stop offset="100%" stopColor={color} stopOpacity="0.02" />
+          <stop offset="0%" stopColor={color} stopOpacity="0.6" />
+          <stop offset="100%" stopColor={color} stopOpacity="0.05" />
         </linearGradient>
       </defs>
       <path d={areaPath} fill={`url(#grad-${color.replace('#', '')})`} />
-      <path d={linePath} fill="none" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
-        style={{ filter: `drop-shadow(0 0 3px ${color}60)` }} />
+      <path d={linePath} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+        style={{ filter: `drop-shadow(0 0 4px ${color}80)` }} />
     </svg>
   );
 }
