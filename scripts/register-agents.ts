@@ -7,7 +7,7 @@ import { CONFIG } from '../lib/config.js';
 
 async function registerAgent(
   name: string,
-  description: string,
+  bio: string,
   agentType: 'autonomous' | 'manual',
   accountId: string,
   privateKey: string,
@@ -22,17 +22,21 @@ async function registerAgent(
 
   const builder = new AgentBuilder()
     .setName(name)
-    .setDescription(description)
-    .setAgentType(agentType)
+    .setBio(bio)
+    .setType(agentType)
+    .setModel('llama-3.3-70b-versatile')
+    .setCreator('AgentShield Protocol')
     .setCapabilities([
       AIAgentCapability.TEXT_GENERATION,
       AIAgentCapability.KNOWLEDGE_RETRIEVAL,
-      AIAgentCapability.DATA_ANALYSIS,
+      AIAgentCapability.DATA_INTEGRATION,
+      AIAgentCapability.MULTI_AGENT_COORDINATION,
+      AIAgentCapability.TRANSACTION_ANALYTICS,
     ])
     .setNetwork('testnet')
     .setMetadata({
+      type: agentType,
       creator: 'AgentShield Protocol',
-      version: '1.0',
       properties: {
         role,
         protocol: 'agentshield',
@@ -48,7 +52,7 @@ async function registerAgent(
 async function main() {
   await registerAgent(
     'AgentShield Coordinator',
-    'DeFi circuit breaker coordinator. Aggregates agent intents, calculates cascade risk, broadcasts safety signals.',
+    'DeFi circuit breaker coordinator. Aggregates agent intents, calculates cascade risk scores using a sliding window, and broadcasts GREEN/YELLOW/RED safety signals to prevent cascading liquidations.',
     'autonomous',
     CONFIG.coordinator.accountId,
     CONFIG.coordinator.privateKey,
@@ -57,7 +61,7 @@ async function main() {
 
   await registerAgent(
     'AgentShield Sentinel Keeper',
-    'DeFi keeper bot sentinel. Monitors liquidation opportunities and broadcasts intents before execution.',
+    'DeFi keeper bot sentinel. Monitors liquidation opportunities on Hedera DeFi protocols and broadcasts intents before execution for collective risk assessment.',
     'autonomous',
     CONFIG.sentinels.keeper.accountId,
     CONFIG.sentinels.keeper.privateKey,
@@ -66,7 +70,7 @@ async function main() {
 
   await registerAgent(
     'AgentShield Sentinel Arb',
-    'Arbitrage bot sentinel. Detects cross-venue price discrepancies and broadcasts swap intents.',
+    'Arbitrage bot sentinel. Detects cross-venue price discrepancies on Hedera DEXes and broadcasts swap intents for coordinated risk management.',
     'autonomous',
     CONFIG.sentinels.arb.accountId,
     CONFIG.sentinels.arb.privateKey,
@@ -75,7 +79,7 @@ async function main() {
 
   await registerAgent(
     'AgentShield Sentinel Whale',
-    'Whale movement sentinel. Simulates large position changes and broadcasts movement intents.',
+    'Whale movement sentinel. Simulates large position changes and broadcasts movement intents to enable collective awareness of systemic risk.',
     'autonomous',
     CONFIG.sentinels.whale.accountId,
     CONFIG.sentinels.whale.privateKey,
@@ -84,7 +88,7 @@ async function main() {
 
   await registerAgent(
     'AgentShield Observer',
-    'Human-facing chat agent. Answers questions about current DeFi risk levels in natural language.',
+    'Human-facing chat agent for AgentShield protocol. Answers questions about current DeFi risk levels, signal history, and agent activity in natural language.',
     'manual',
     CONFIG.observer.accountId,
     CONFIG.observer.privateKey,
