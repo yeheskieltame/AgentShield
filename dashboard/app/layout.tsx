@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import Navigation from '../components/Navigation';
 import Header from '../components/Header';
+import ChatBubble from '../components/ChatBubble';
 
 export const metadata: Metadata = {
   title: 'AgentShield Dashboard',
@@ -21,6 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main className="max-w-7xl mx-auto px-4">
           {children}
         </main>
+        <ChatBubble />
       </body>
     </html>
   );

@@ -14,6 +14,11 @@ export class RiskEngine {
     return this.intents.length;
   }
 
+  getRecentAgentIds(): string[] {
+    this.prune();
+    return [...new Set(this.intents.map(i => i.agent_id))];
+  }
+
   private prune() {
     const cutoff = Date.now() - WINDOW_SIZE_MS;
     this.intents = this.intents.filter(i => i.timestamp > cutoff);
