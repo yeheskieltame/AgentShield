@@ -6,6 +6,8 @@ AgentShield is a pre-execution coordination layer where AI agents broadcast tran
 
 Track: AI and Agents | Bounty: Hashgraph Online | Hedera Hello Future Apex Hackathon 2026
 
+**[Demo Video](https://www.youtube.com/watch?v=50SCgqlaXqw)** | **[Live Dashboard (Vercel)](https://dashboard-sandy-delta-60.vercel.app)** | **[Live Backend (HF Spaces)](https://yeheskieltame-agentshield.hf.space/health)** | **[HOL Registry](https://moonscape.tech)** | **[HashScan Explorer](https://hashscan.io/testnet)**
+
 ## Table of Contents
 
 1. [Problem](#problem)
