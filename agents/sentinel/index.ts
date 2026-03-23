@@ -3,8 +3,22 @@ import { createClient } from '../../lib/hedera-client.js';
 import { subscribeToTopic } from '../../lib/hcs-subscriber.js';
 import { CONFIG } from '../../lib/config.js';
 import { Intent, Signal } from '../../lib/types.js';
+import { StakingManager } from '../../lib/staking.js';
 
 const role = process.argv.find(a => a.startsWith('--role='))?.split('=')[1] || 'keeper';
+
+/* HCS-10 outbound topics for inter-sentinel compliance broadcasting */
+const HOL_OUTBOUND_TOPICS: Record<string, string> = {
+  keeper: '0.0.8299716',
+  arb: '0.0.8299729',
+  whale: '0.0.8299735',
+};
+
+const ROLE_LABELS: Record<string, string> = {
+  keeper: 'Keeper',
+  arb: 'Arb',
+  whale: 'Whale',
+};
 
 function getAgentConfig(role: string) {
   const map: Record<string, { accountId: string; privateKey: string }> = {
@@ -18,16 +32,27 @@ function getAgentConfig(role: string) {
 class SentinelAgent {
   private client;
   private accountId: string;
+  private privateKey: string;
   private currentSignal: Signal | null = null;
+  private stakingManager = new StakingManager();
 
   constructor(role: string) {
     const agentConfig = getAgentConfig(role);
     this.client = createClient(agentConfig.accountId, agentConfig.privateKey);
     this.accountId = agentConfig.accountId;
+    this.privateKey = agentConfig.privateKey;
   }
 
   async start() {
     console.log(`[Sentinel:${role}] Starting, account: ${this.accountId}`);
+
+    // Stake HBAR to treasury as skin-in-the-game
+    const staked = await this.stakingManager.stake(this.accountId, this.privateKey);
+    if (staked) {
+      console.log(`[Sentinel:${role}] Staked 1 HBAR to treasury`);
+    } else {
+      console.warn(`[Sentinel:${role}] Failed to stake — continuing without stake`);
+    }
 
     // Listen for signals
     await subscribeToTopic(CONFIG.topics.signal, (signal: Signal) => {
@@ -37,8 +62,79 @@ class SentinelAgent {
       }
     });
 
+    // Subscribe to peer sentinels' HCS-10 outbound topics for compliance updates
+    this.subscribeToPeers();
+
     // Main loop: generate intents periodically
     this.runScenario();
+  }
+
+  /**
+   * Subscribe to other sentinels' HCS-10 outbound topics to receive
+   * their compliance status updates.
+   */
+  private subscribeToPeers() {
+    for (const [peerRole, outboundTopic] of Object.entries(HOL_OUTBOUND_TOPICS)) {
+      if (peerRole === role) continue; // skip own topic
+
+      subscribeToTopic(outboundTopic, (msg: any) => {
+        try {
+          if (msg.p !== 'hcs-10' || msg.op !== 'message') return;
+          const data = msg.data;
+          if (!data || data.type !== 'compliance_update') return;
+
+          const peerLabel = ROLE_LABELS[data.role] || data.role;
+          const action = data.action_taken?.replace(/_/g, ' ') || 'unknown action';
+          console.log(
+            `[Sentinel:${role}] Peer update: Sentinel ${peerLabel} ${action} (${data.signal_level})`
+          );
+        } catch {
+          // Non-critical: ignore malformed peer messages
+        }
+      }).catch((err) => {
+        console.error(`[Sentinel:${role}] Failed to subscribe to ${peerRole} outbound topic:`, err);
+      });
+    }
+  }
+
+  /**
+   * Broadcast a compliance update via HCS-10 to this sentinel's outbound topic
+   * so peer sentinels can see how we adjusted.
+   */
+  private async broadcastComplianceUpdate(
+    signalLevel: string,
+    actionTaken: string,
+    originalSizeUsd: number,
+    adjustedSizeUsd: number
+  ): Promise<void> {
+    try {
+      const outboundTopic = HOL_OUTBOUND_TOPICS[role];
+      if (!outboundTopic) return;
+
+      const message = {
+        p: 'hcs-10' as const,
+        op: 'message' as const,
+        data: {
+          type: 'compliance_update',
+          agent_id: this.accountId,
+          role,
+          signal_level: signalLevel,
+          action_taken: actionTaken,
+          original_size_usd: originalSizeUsd,
+          adjusted_size_usd: adjustedSizeUsd,
+          timestamp: Date.now(),
+        },
+      };
+
+      await new TopicMessageSubmitTransaction()
+        .setTopicId(outboundTopic)
+        .setMessage(JSON.stringify(message))
+        .execute(this.client);
+
+      console.log(`[Sentinel:${role}] Broadcast compliance update: ${actionTaken} (${signalLevel})`);
+    } catch (err) {
+      console.error(`[Sentinel:${role}] Failed to broadcast compliance update:`, err);
+    }
   }
 
   async broadcastIntent(intent: Omit<Intent, 'p' | 'op' | 'agent_id' | 'timestamp'>) {
@@ -90,6 +186,11 @@ class SentinelAgent {
               urgency: 'high',
             });
           }
+          // Broadcast compliance update when signal caused an adjustment
+          if (this.currentSignal && this.currentSignal.level !== 'GREEN') {
+            const action = shouldProceed ? 'reduced_size_50pct' : 'aborted';
+            await this.broadcastComplianceUpdate(this.currentSignal.level, action, baseSize, adjustedSize);
+          }
           await sleep(delayMs + 5000 + Math.random() * 10000);
         }
       },
@@ -105,6 +206,11 @@ class SentinelAgent {
               direction: Math.random() > 0.3 ? 'sell' : 'buy',
               urgency: 'medium',
             });
+          }
+          // Broadcast compliance update when signal caused an adjustment
+          if (this.currentSignal && this.currentSignal.level !== 'GREEN') {
+            const action = shouldProceed ? 'reduced_size_50pct' : 'aborted';
+            await this.broadcastComplianceUpdate(this.currentSignal.level, action, baseSize, adjustedSize);
           }
           await sleep(delayMs + 3000 + Math.random() * 8000);
         }
@@ -122,6 +228,11 @@ class SentinelAgent {
               urgency: 'low',
             });
           }
+          // Broadcast compliance update when signal caused an adjustment
+          if (this.currentSignal && this.currentSignal.level !== 'GREEN') {
+            const action = shouldProceed ? 'reduced_size_50pct' : 'aborted';
+            await this.broadcastComplianceUpdate(this.currentSignal.level, action, baseSize, adjustedSize);
+          }
           await sleep(delayMs + 15000 + Math.random() * 30000);
         }
       },
@@ -135,5 +246,23 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+const stakingManager = new StakingManager();
+const agentConfig = getAgentConfig(role);
+
 const agent = new SentinelAgent(role);
 agent.start().catch(console.error);
+
+// Attempt to unstake on graceful shutdown
+const handleShutdown = async () => {
+  console.log(`[Sentinel:${role}] Shutting down, attempting to unstake...`);
+  try {
+    await stakingManager.unstake(agentConfig.accountId);
+    console.log(`[Sentinel:${role}] Unstaked successfully`);
+  } catch (err) {
+    console.error(`[Sentinel:${role}] Failed to unstake on shutdown:`, err);
+  }
+  process.exit(0);
+};
+
+process.on('SIGINT', handleShutdown);
+process.on('SIGTERM', handleShutdown);

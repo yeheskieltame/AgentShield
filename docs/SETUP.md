@@ -9,7 +9,7 @@
 ## 1. Install Dependencies
 
 ```bash
-git clone https://github.com/AqilJaique/AgentShield.git
+git clone https://github.com/yeheskieltame/AgentShield.git
 cd AgentShield
 npm install
 cd dashboard && npm install && cd ..

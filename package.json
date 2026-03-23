@@ -15,7 +15,8 @@
     "observer": "tsx agents/observer/index.ts",
     "demo:crash": "tsx agents/sentinel/scenarios/flash-crash.ts",
     "demo:normal": "tsx agents/sentinel/scenarios/normal-trading.ts",
-    "demo:whale": "tsx agents/sentinel/scenarios/whale-dump.ts"
+    "demo:whale": "tsx agents/sentinel/scenarios/whale-dump.ts",
+    "backend": "tsx hf-space/server.ts"
   },
   "license": "MIT",
   "dependencies": {

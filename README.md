@@ -232,7 +232,7 @@ agentshield/
 Prerequisites: Node.js 18+, 6 Hedera Testnet accounts, Groq API key.
 
 ```bash
-git clone https://github.com/AqilJaique/AgentShield.git
+git clone https://github.com/yeheskieltame/AgentShield.git
 cd AgentShield
 npm install
 cd dashboard && npm install && cd ..
@@ -403,6 +403,8 @@ Phase 1 (Current): Testnet MVP demonstrating the coordination mechanism with sim
 Phase 2 (Post-Hackathon): Integration partnerships with existing Hedera DeFi protocols (Bonzo Finance, SaucerSwap) to connect real liquidation and swap events to the intent broadcast layer.
 
 Phase 3 (Mainnet): Protocol fee model where DeFi protocols subscribe to the signal feed. Premium analytics tier for institutional participants. Reputation scores as composable DeFi primitives.
+
+Target: 10 DeFi protocol integrations within 6 months of mainnet launch. 100+ registered agents within the first year.
 
 Revenue streams: Signal subscription fees per protocol. Premium risk analytics API. Reputation data licensing. SHIELD token governance and staking.
 

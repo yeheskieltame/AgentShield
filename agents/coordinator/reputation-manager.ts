@@ -10,6 +10,7 @@ import {
 import { Client } from '@hashgraph/sdk';
 import { CONFIG } from '../../lib/config.js';
 import { ReputationEvent } from '../../lib/types.js';
+import { StakingManager } from '../../lib/staking.js';
 
 interface AgentRecord {
   compliant: number;
@@ -23,6 +24,7 @@ export class ReputationManager {
   private records: Map<string, AgentRecord> = new Map();
   private client: Client;
   private coordinatorKey: PrivateKey;
+  private stakingManager = new StakingManager();
 
   constructor(client: Client) {
     this.client = client;
@@ -65,6 +67,16 @@ export class ReputationManager {
       console.log(`[Reputation] ${complied ? 'Compliance' : 'Violation'} recorded for ${agentId} | trust=${trustScore.toFixed(2)}`);
     } catch (err) {
       console.error(`[Reputation] Failed to publish event for ${agentId}:`, err);
+    }
+
+    // Slash staked HBAR on violation
+    if (!complied) {
+      try {
+        await this.stakingManager.slash(agentId, `Violation on ${signalLevel} signal`);
+        console.log(`[Coordinator] Slashed stake from agent ${agentId} for violation`);
+      } catch (err) {
+        console.error(`[Coordinator] Failed to slash ${agentId}:`, err);
+      }
     }
 
     // Check milestone: every 10 compliant actions, mint NFT and distribute $SHIELD reward

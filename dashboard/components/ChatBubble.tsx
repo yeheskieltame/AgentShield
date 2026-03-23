@@ -10,6 +10,10 @@ interface ChatMessage {
   role: 'user' | 'observer';
   text: string;
   timestamp: number;
+  source?: string;
+  observerAccount?: string;
+  observerTopic?: string;
+  onChainMessages?: number;
 }
 
 function fallbackResponse(signal: Signal | null): string {
@@ -21,7 +25,15 @@ function fallbackResponse(signal: Signal | null): string {
   return `Signal: ${signal.level} (${score}). ${reasoning}`;
 }
 
-async function fetchAIResponse(message: string, signal: Signal | null): Promise<string> {
+interface ChatAPIResponse {
+  response: string;
+  source?: string;
+  observerAccount?: string;
+  observerTopic?: string;
+  onChainMessages?: number;
+}
+
+async function fetchAIResponse(message: string, signal: Signal | null): Promise<ChatAPIResponse> {
   try {
     const res = await fetch('/api/chat', {
       method: 'POST',
@@ -29,10 +41,16 @@ async function fetchAIResponse(message: string, signal: Signal | null): Promise<
       body: JSON.stringify({ message, signal }),
     });
     if (!res.ok) throw new Error(`API error: ${res.status}`);
-    const data = await res.json();
-    return data.response || fallbackResponse(signal);
+    const data: ChatAPIResponse = await res.json();
+    return {
+      response: data.response || fallbackResponse(signal),
+      source: data.source,
+      observerAccount: data.observerAccount,
+      observerTopic: data.observerTopic,
+      onChainMessages: data.onChainMessages,
+    };
   } catch {
-    return fallbackResponse(signal);
+    return { response: fallbackResponse(signal), source: 'fallback' };
   }
 }
 
@@ -67,8 +85,17 @@ export default function ChatBubble() {
     setInput('');
     setIsLoading(true);
 
-    const response = await fetchAIResponse(trimmed, latestSignal);
-    const obsMsg: ChatMessage = { id: Date.now() + 2, role: 'observer', text: response, timestamp: Date.now() };
+    const result = await fetchAIResponse(trimmed, latestSignal);
+    const obsMsg: ChatMessage = {
+      id: Date.now() + 2,
+      role: 'observer',
+      text: result.response,
+      timestamp: Date.now(),
+      source: result.source,
+      observerAccount: result.observerAccount,
+      observerTopic: result.observerTopic,
+      onChainMessages: result.onChainMessages,
+    };
 
     setMessages((prev) => [...prev.slice(0, -1), obsMsg]);
     setIsLoading(false);
@@ -108,7 +135,7 @@ export default function ChatBubble() {
               <Image src="/agentshield-icon-filled-32px.png" alt="Observer" width={24} height={24} />
               <div>
                 <div className="text-xs font-bold text-white">Observer Agent</div>
-                <div className="text-[9px] text-cyan-400">AgentShield Protocol</div>
+                <div className="text-[9px] text-cyan-400">HCS-10 On-Chain Agent</div>
               </div>
             </div>
             <button
@@ -136,6 +163,14 @@ export default function ChatBubble() {
                     <div className="text-[9px] text-cyan-400 font-bold uppercase tracking-wider mb-1">Observer</div>
                   )}
                   <p className="whitespace-pre-wrap leading-relaxed">{msg.text}</p>
+                  {msg.role === 'observer' && msg.source === 'hcs10_observer' && (
+                    <div className="mt-1.5 pt-1 border-t border-white/5 flex items-center gap-1">
+                      <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      <span className="text-[8px] text-emerald-400/80">
+                        On-chain via HCS-10 &middot; Observer {msg.observerAccount} &middot; {msg.onChainMessages} msg{msg.onChainMessages !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                  )}
                   <div className="text-[8px] text-white/40 mt-1 text-right">{formatTime(msg.timestamp)}</div>
                 </div>
               </div>
