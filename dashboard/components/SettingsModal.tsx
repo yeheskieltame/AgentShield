@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 
 // Default HF Space URL — updated after deployment
-const DEFAULT_HF_URL = 'https://agentshield-backend.hf.space';
+const DEFAULT_HF_URL = 'https://yeheskieltame-agentshield.hf.space';
 
 interface BackendStatus {
   status: 'online' | 'offline' | 'checking';
